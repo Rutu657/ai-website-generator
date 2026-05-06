@@ -49,7 +49,7 @@ CRITICAL RULES:
 
   try {
     const completion = await client.chat.completions.create({
-      model: "z-ai/glm-4.7",
+      model: "z-ai/glm4.7",
       messages,
       temperature: 1,
       top_p: 1,
