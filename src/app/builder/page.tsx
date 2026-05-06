@@ -223,132 +223,122 @@ export default config;
 
   const getIframeSrcDoc = () => {
     if (!generatedCode) return "";
-    
-    // Escape backticks and dollar signs for safe injection into the template string
+
+    // Safely escape code for injection into the HTML template
     const escapedCode = generatedCode
       .replace(/\\/g, "\\\\")
       .replace(/`/g, "\\`")
       .replace(/\${/g, "\\${");
 
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-          <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-          <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
-          <script src="https://cdn.tailwindcss.com"></script>
-          <script src="https://unpkg.com/lucide@latest"></script>
-          <script src="https://unpkg.com/lucide-react@0.284.0/dist/umd/lucide-react.min.js" crossorigin></script>
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/framer-motion/10.16.4/framer-motion.js" crossorigin></script>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-          <style>
-            body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow-x: hidden; background: #fff; color: #000; min-height: 100vh; }
-            #error-overlay { display: none; position: fixed; inset: 0; background: #fff; z-index: 9999; padding: 24px; color: #ef4444; overflow: auto; }
-            .error-card { background: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; padding: 24px; max-width: 800px; margin: 0 auto; }
-            pre { background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #fee2e2; overflow: auto; font-size: 12px; color: #7f1d1d; margin-top: 12px; }
-          </style>
-        </head>
-        <body>
-          <div id="root"></div>
-          <div id="error-overlay">
-            <div class="error-card">
-              <h3 style="margin-top:0">Preview Error</h3>
-              <p id="error-message"></p>
-              <pre id="error-stack"></pre>
-            </div>
-          </div>
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #fff; color: #000; min-height: 100vh; }
+    #error-overlay { display: none; position: fixed; inset: 0; background: #fff; z-index: 9999; padding: 24px; overflow: auto; }
+    .error-card { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 12px; padding: 24px; max-width: 860px; margin: 0 auto; color: #b91c1c; }
+    pre { background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #fca5a5; overflow: auto; font-size: 12px; color: #7f1d1d; margin-top: 12px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <div id="error-overlay">
+    <div class="error-card">
+      <h3 style="margin:0 0 8px">⚠ Preview Error</h3>
+      <p id="error-message" style="font-weight:600;margin:0 0 4px"></p>
+      <pre id="error-stack"></pre>
+    </div>
+  </div>
+  <script>
+    window.onerror = function(msg, src, line, col, err) {
+      showError(err || { message: msg, stack: 'line ' + line + ', col ' + col });
+    };
+    function showError(e) {
+      document.getElementById('error-overlay').style.display = 'block';
+      document.getElementById('error-message').textContent = (e.name || 'Error') + ': ' + e.message;
+      document.getElementById('error-stack').textContent = e.stack || 'No stack trace';
+    }
 
-          <script type="text/babel">
-            window.onerror = function(message, source, lineno, colno, error) {
-              console.error("Global Error:", message);
-              showError(error || { message: message });
-            };
+    // Expose React hooks globally
+    var R = window.React;
+    if (R) {
+      ['useState','useEffect','useMemo','useRef','useCallback','useLayoutEffect','useContext','useReducer','useId'].forEach(function(h){window[h]=R[h];});
+    }
 
-            function showError(e) {
-              document.getElementById('error-overlay').style.display = 'block';
-              document.getElementById('error-message').textContent = (e.name || "Error") + ": " + e.message;
-              document.getElementById('error-stack').textContent = e.stack || "No stack trace available";
-            }
+    // Expose Lucide icons globally
+    if (window.lucide) {
+      Object.keys(window.lucide).forEach(function(k){ window[k] = window.lucide[k]; });
+    }
 
-            // Global shims for AI-generated code
-            const ReactLib = window.React;
-            const LucideLib = window.LucideReact || window.lucide;
-            const MotionLib = window.FramerMotion || window.Motion;
+    // Minimal framer-motion shim (passthrough wrappers)
+    window.motion = new Proxy({}, {
+      get: function(_, tag) {
+        return React.forwardRef(function(props, ref) {
+          var _props = Object.assign({}, props, { ref: ref });
+          delete _props.initial; delete _props.animate; delete _props.exit;
+          delete _props.transition; delete _props.variants; delete _props.whileHover;
+          delete _props.whileTap; delete _props.whileInView; delete _props.layout;
+          return React.createElement(tag, _props);
+        });
+      }
+    });
+    window.AnimatePresence = function(props){ return props.children || null; };
+  </script>
+  <script type="text/babel" data-presets="react">
+    try {
+      var __rawCode = \`${escapedCode}\`;
 
-            console.log("Global Check:", { 
-              React: !!ReactLib, 
-              Lucide: !!LucideLib, 
-              Motion: !!MotionLib 
-            });
+      // Strip all import statements
+      __rawCode = __rawCode.replace(/^import[^;\n]*[;\n]/gm, '');
 
-            // Map React hooks to window
-            if (ReactLib) {
-              ['useState', 'useEffect', 'useMemo', 'useRef', 'useCallback', 'useLayoutEffect', 'useContext'].forEach(h => {
-                window[h] = ReactLib[h];
-              });
-            }
+      // Strip export keywords, capture main component name if using export default
+      var __compName = 'GeneratedWebsite';
+      __rawCode = __rawCode.replace(/export\s+default\s+function\s+(\w+)/, function(_, name) {
+        __compName = name;
+        return 'function ' + name;
+      });
+      __rawCode = __rawCode.replace(/export\s+default\s+class\s+(\w+)/, function(_, name) {
+        __compName = name;
+        return 'class ' + name;
+      });
+      __rawCode = __rawCode.replace(/export\s+default\s+/g, 'window.__defaultExport = ');
+      __rawCode = __rawCode.replace(/export\s+const\s+/g, 'const ');
+      __rawCode = __rawCode.replace(/export\s+function\s+/g, 'function ');
 
-            // Spread Lucide components to window
-            if (LucideLib) {
-              Object.assign(window, LucideLib);
-              // Handle potential nesting in some UMD builds
-              if (LucideLib.icons) Object.assign(window, LucideLib.icons);
-            }
+      eval(Babel.transform(__rawCode, { presets: ['react'] }).code);
 
-            // Spread Framer Motion to window
-            if (MotionLib) {
-              Object.assign(window, MotionLib);
-              window.motion = MotionLib.motion;
-              window.AnimatePresence = MotionLib.AnimatePresence;
-            }
+      var Comp = window.GeneratedWebsite
+        || window.__defaultExport
+        || window[__compName];
 
-            let code = \`${escapedCode}\`;
-            
-            // Clean up code
-            code = code.replace(/import[\\s\\S]*?from\\s+['\"].*?['\"];?/g, "");
-            
-            // Map exports to window.GeneratedWebsite
-            code = code.replace(/export\\s+default\\s+function\\s+(\\w+)/, "function $1");
-            code = code.replace(/export\\s+default\\s+(\\w+);?/, "window.GeneratedWebsite = $1;");
-            code = code.replace(/export\\s+default\\s+/, "window.GeneratedWebsite = ");
-            code = code.replace(/export\\s+const\\s+/g, "var ");
-            code = code.replace(/export\\s+function\\s+/g, "function ");
+      if (!Comp) {
+        // Last-resort: look for any function that returns JSX
+        var m = __rawCode.match(/function\s+(\w+)/);
+        if (m) Comp = window[m[1]];
+      }
 
-            try {
-              const compiled = Babel.transform(code, { 
-                presets: ['react'],
-                filename: 'generated.js'
-              }).code;
-              
-              eval(compiled);
-              
-              // Fallback if GeneratedWebsite wasn't set by export default
-              if (!window.GeneratedWebsite) {
-                const funcMatch = code.match(/function\\s+(\\w+)/) || code.match(/(?:const|var|let)\\s+(\\w+)\\s*=\\s*\\(/);
-                if (funcMatch) {
-                  window.GeneratedWebsite = window[funcMatch[1]];
-                }
-              }
+      if (!Comp) throw new Error('No renderable component found. The AI may have returned invalid code.');
 
-              if (!window.GeneratedWebsite) {
-                throw new Error("No renderable component found. Ensure you have a default export or a main function.");
-              }
-
-              const root = ReactDOM.createRoot(document.getElementById('root'));
-              root.render(
-                <React.Suspense fallback={<div style={{padding: 20}}>Loading...</div>}>
-                  <window.GeneratedWebsite />
-                </React.Suspense>
-              );
-            } catch (e) {
-              console.error("Render Error:", e);
-              showError(e);
-            }
-          </script>
-        </body>
-      </html>
-    `;
+      var root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(React.createElement(React.StrictMode, null, React.createElement(Comp)));
+    } catch(e) {
+      console.error('Preview Error:', e);
+      document.getElementById('error-overlay').style.display = 'block';
+      document.getElementById('error-message').textContent = (e.name || 'Error') + ': ' + e.message;
+      document.getElementById('error-stack').textContent = e.stack || 'No stack trace';
+    }
+  </script>
+</body>
+</html>`;
   };
 
   return (
