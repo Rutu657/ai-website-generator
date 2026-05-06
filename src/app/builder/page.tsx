@@ -234,12 +234,12 @@ export default config;
       <!DOCTYPE html>
       <html>
         <head>
-          <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-          <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-          <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+          <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+          <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+          <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
           <script src="https://cdn.tailwindcss.com"></script>
-          <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.min.js"></script>
-          <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+          <script src="https://cdn.jsdelivr.net/npm/lucide-react@0.284.0/dist/umd/lucide-react.min.js" crossorigin></script>
+          <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js" crossorigin></script>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
           <style>
             body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow-x: hidden; background: #fff; color: #000; min-height: 100vh; }
@@ -260,12 +260,13 @@ export default config;
 
           <script type="text/babel">
             window.onerror = function(message, source, lineno, colno, error) {
-              showError(error || { message });
+              console.error("Global Error:", message);
+              showError(error || { message: message });
             };
 
             function showError(e) {
               document.getElementById('error-overlay').style.display = 'block';
-              document.getElementById('error-message').textContent = e.name + ": " + e.message;
+              document.getElementById('error-message').textContent = (e.name || "Error") + ": " + e.message;
               document.getElementById('error-stack').textContent = e.stack || "No stack trace available";
             }
 
@@ -274,11 +275,22 @@ export default config;
             const LucideLib = window.LucideReact || window.lucide;
             const MotionLib = window.FramerMotion;
 
-            if (!LucideLib) console.warn("Lucide library not found in global scope.");
+            console.log("Available globals:", { 
+              React: !!ReactLib, 
+              LucideReact: !!window.LucideReact, 
+              lucide: !!window.lucide,
+              FramerMotion: !!MotionLib 
+            });
+
+            if (!LucideLib) {
+              console.error("CRITICAL: Lucide library NOT found. Icons will fail.");
+            }
 
             // Expose common hooks
             const hooks = ['useState', 'useEffect', 'useMemo', 'useRef', 'useCallback', 'useLayoutEffect', 'useContext'];
-            hooks.forEach(h => window[h] = ReactLib[h]);
+            hooks.forEach(h => {
+              if (ReactLib && ReactLib[h]) window[h] = ReactLib[h];
+            });
 
             // Expose icons
             if (LucideLib) {
