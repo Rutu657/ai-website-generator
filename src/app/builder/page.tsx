@@ -231,20 +231,68 @@ export default config;
           <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
           <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
           <script src="https://cdn.tailwindcss.com"></script>
+          <script src="https://unpkg.com/lucide@latest"></script>
+          <script src="https://unpkg.com/lucide-react@latest"></script>
+          <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
           <style>
-            body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
+            body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow-x: hidden; background: #fff; color: #000; }
+            ::-webkit-scrollbar { width: 8px; }
+            ::-webkit-scrollbar-track { background: #f1f1f1; }
+            ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+            ::-webkit-scrollbar-thumb:hover { background: #555; }
           </style>
         </head>
         <body>
           <div id="root"></div>
           <script type="text/babel">
-            ${generatedCode.replace(/export default/g, "").replace(/export /g, "")}
+            // Expose dependencies to global scope
+            const { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } = React;
+            const { motion, AnimatePresence, useScroll, useTransform, useSpring, useInView } = FramerMotion;
+            
+            // Map all Lucide icons to global scope
+            Object.keys(LucideReact).forEach(key => {
+              window[key] = LucideReact[key];
+            });
+
+            // Map Framer Motion
+            window.motion = motion;
+            window.AnimatePresence = AnimatePresence;
+
+            let code = \`${generatedCode.replace(/`/g, "\\`").replace(/\${/g, "\\${")}\`;
+            
+            // Cleanup code for browser execution
+            code = code.replace(/import\\s+.*?\\s+from\\s+['\"].*?['\"];?/g, "");
+            code = code.replace(/export\\s+default\\s+function\\s+(\\w+)/g, "function $1");
+            code = code.replace(/export\\s+default\\s+/g, "const GeneratedWebsite = ");
+            code = code.replace(/export\\s+const\\s+/g, "const ");
+            
+            // Ensure we have a GeneratedWebsite component
+            if (!code.includes("const GeneratedWebsite") && !code.includes("function GeneratedWebsite")) {
+              // Try to find any function and name it GeneratedWebsite if none found
+              const match = code.match(/function\\s+(\\w+)/);
+              if (match) {
+                code += \`\\nconst GeneratedWebsite = \${match[1]};\`;
+              }
+            }
+
             try {
+              const compiled = Babel.transform(code, { 
+                presets: ['react'],
+                filename: 'generated.js'
+              }).code;
+              
+              eval(compiled);
+              
               const root = ReactDOM.createRoot(document.getElementById('root'));
               root.render(<GeneratedWebsite />);
             } catch (e) {
-              console.error(e);
+              console.error("Render Error:", e);
+              document.body.innerHTML = \`<div style="color: #ef4444; padding: 32px; font-family: system-ui; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; margin: 20px;">
+                <h3 style="margin-top: 0; font-size: 18px;">Preview Render Error</h3>
+                <pre style="background: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #fee2e2; overflow: auto; font-size: 13px; color: #7f1d1d;">\${e.message}</pre>
+                <p style="font-size: 14px; color: #991b1b;">This usually happens if the AI generated invalid JSX or used a missing library.</p>
+              </div>\`;
             }
           </script>
         </body>
@@ -264,7 +312,7 @@ export default config;
           </div>
           <div className="flex flex-col">
             <h1 className="text-sm font-bold tracking-tight leading-none uppercase">AI SaaS Builder Pro</h1>
-            <span className="text-[9px] text-zinc-500 font-mono mt-1 uppercase tracking-widest">ENGINE: GEMINI_1.5_FLASH</span>
+            <span className="text-[9px] text-zinc-500 font-mono mt-1 uppercase tracking-widest">ENGINE: GEMINI_2.0_FLASH</span>
           </div>
         </div>
 
