@@ -84,7 +84,10 @@ export default function Home() {
         body: JSON.stringify({ prompt: finalPrompt, projectID }),
       });
 
-      if (!response.ok) throw new Error("Failed to connect to Readdy API");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || "Failed to connect to Readdy API");
+      }
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
