@@ -264,22 +264,33 @@ export default config;
             // Cleanup code for browser execution (Multiline support)
             code = code.replace(/import[\\s\\S]*?from\\s+['\"].*?['\"];?/g, "");
             
-            // Handle various export styles
-            if (code.includes("export default function")) {
+            // Handle various export styles more safely
+            // 1. Handle "export default SomeComponent;"
+            const exportDefaultMatch = code.match(/export\\s+default\\s+(\\w+);?/);
+            if (exportDefaultMatch) {
+              const componentName = exportDefaultMatch[1];
+              code = code.replace(exportDefaultMatch[0], \`\\nvar GeneratedWebsite = \${componentName};\`);
+            } 
+            // 2. Handle "export default function Name() {}"
+            else if (code.includes("export default function")) {
               code = code.replace(/export\\s+default\\s+function\\s+(\\w+)/, "function $1");
               const match = code.match(/function\\s+(\\w+)/);
-              if (match) code += \`\\nconst GeneratedWebsite = \${match[1]};\`;
-            } else if (code.includes("export default")) {
-              code = code.replace(/export\\s+default\\s+/, "const GeneratedWebsite = ");
-            } else if (code.includes("export const")) {
-              code = code.replace(/export\\s+const\\s+/, "const ");
+              if (match) code += \`\\nvar GeneratedWebsite = \${match[1]};\`;
+            } 
+            // 3. Handle "export default () => {}"
+            else if (code.includes("export default")) {
+              code = code.replace(/export\\s+default\\s+/, "var GeneratedWebsite = ");
             }
 
-            // Final fallback: if no GeneratedWebsite, take the first named function
+            // Strip other exports
+            code = code.replace(/export\\s+const\\s+/g, "var ");
+            code = code.replace(/export\\s+function\\s+/g, "function ");
+
+            // Final fallback: if no GeneratedWebsite, take the first named function or const
             if (!code.includes("GeneratedWebsite")) {
-              const funcMatch = code.match(/function\\s+(\\w+)/) || code.match(/const\\s+(\\w+)\\s*=\\s*\\(/);
+              const funcMatch = code.match(/function\\s+(\\w+)/) || code.match(/(?:const|var|let)\\s+(\\w+)\\s*=\\s*\\(/);
               if (funcMatch) {
-                code += \`\\nconst GeneratedWebsite = \${funcMatch[1]};\`;
+                code += \`\\nvar GeneratedWebsite = \${funcMatch[1]};\`;
               }
             }
 
@@ -292,12 +303,12 @@ export default config;
               eval(compiled);
               
               if (typeof GeneratedWebsite === 'undefined') {
-                throw new Error("Could not find a valid React component to render. Ensure your code has a default export or a main function.");
+                throw new Error("Could not find a valid React component to render. Check if your code has a function or a default export.");
               }
 
               const root = ReactDOM.createRoot(document.getElementById('root'));
               root.render(
-                <React.Suspense fallback={<div>Loading...</div>}>
+                <React.Suspense fallback={<div style={{padding: 20, color: '#666'}}>Loading components...</div>}>
                   <GeneratedWebsite />
                 </React.Suspense>
               );
@@ -308,11 +319,11 @@ export default config;
                 <p style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">\${e.name}: \${e.message}</p>
                 <pre style="background: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #fee2e2; overflow: auto; font-size: 12px; color: #7f1d1d; line-height: 1.5;">\${e.stack || "No stack trace available"}</pre>
                 <div style="margin-top: 16px; font-size: 13px; color: #991b1b;">
-                  <strong>Tips:</strong>
-                  <ul style="margin: 8px 0 0 20px; padding: 0;">
-                    <li>Check if all imports are removed correctly.</li>
-                    <li>Ensure the component is correctly exported.</li>
-                    <li>Verify there are no syntax errors in the generated code.</li>
+                  <strong>Troubleshooting:</strong>
+                  <ul style="margin: 8px 0 0 20px; padding: 0; line-height: 1.6;">
+                    <li>Check the <b>Code</b> tab for syntax errors.</li>
+                    <li>Ensure the component is exported or defined as a function.</li>
+                    <li>If using multiple components, make sure the main one is exported as default.</li>
                   </ul>
                 </div>
               </div>\`;
