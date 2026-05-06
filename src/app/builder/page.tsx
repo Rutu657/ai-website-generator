@@ -353,7 +353,7 @@ export default config;
           </div>
           <div className="flex flex-col">
             <h1 className="text-sm font-bold tracking-tight leading-none uppercase">AI SaaS Builder Pro</h1>
-            <span className="text-[9px] text-zinc-500 font-mono mt-1 uppercase tracking-widest">ENGINE: NVIDIA_NIM_GLM4</span>
+            <span className="text-[9px] text-zinc-500 font-mono mt-1 uppercase tracking-widest">ENGINE: NVIDIA_NIM_GLM-4.7</span>
           </div>
         </div>
 
