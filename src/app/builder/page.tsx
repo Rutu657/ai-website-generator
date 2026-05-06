@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { 
   Send, Layout, Code, Play, RefreshCw, Wand2, Sparkles, Monitor, Smartphone, Tablet, 
   ChevronLeft, ChevronRight, Copy, History, Trash2, Maximize2, Globe, ArrowRight,
-  MessageSquare, User, Zap, Download, FileCode, Check, Github, Package
+  MessageSquare, User, Zap, Download, FileCode, Check, Code2, Package
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Skeleton, { SkeletonTheme } from "react-loading-skeleton";

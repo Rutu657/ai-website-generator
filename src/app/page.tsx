@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { 
   Zap, Sparkles, Code2, Download, Rocket, Shield, 
-  ChevronRight, Github, Monitor, Globe, Smartphone, Play, 
+  ChevronRight, Monitor, Globe, Smartphone, Play, 
   ArrowRight, CheckCircle2, Star, Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -75,7 +75,7 @@ export default function LandingPage() {
                   href="https://github.com" 
                   className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-8 text-lg font-bold transition-all hover:bg-white/10 sm:w-auto"
                 >
-                  <Github className="h-5 w-5" /> View on GitHub
+                  <Code2 className="h-5 w-5" /> View on GitHub
                 </a>
               </div>
 
@@ -137,6 +137,7 @@ export default function LandingPage() {
                </div>
             </div>
           </motion.div>
+        </section>
 
         {/* Features Grid */}
         <section id="features" className="px-4 py-32 sm:px-6 lg:px-8 bg-black/20">
