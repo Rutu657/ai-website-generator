@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-flash-latest",
       systemInstruction: `
         You are an expert React and Tailwind frontend engineer.
         Generate only production-ready React components using TailwindCSS.
