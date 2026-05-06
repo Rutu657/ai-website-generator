@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       systemInstruction: `
         You are an expert React and Tailwind frontend engineer.
         Generate only production-ready React components using TailwindCSS.
@@ -48,7 +48,6 @@ export async function POST(req: NextRequest) {
         for await (const chunk of result.stream) {
           const chunkText = chunk.text();
           if (chunkText) {
-            // Send formatted data that our UI expects
             const data = JSON.stringify({ content: chunkText });
             controller.enqueue(`data: ${data}\n\n`);
           }
