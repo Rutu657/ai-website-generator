@@ -239,7 +239,7 @@ export default config;
           <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
           <script src="https://cdn.tailwindcss.com"></script>
           <script src="https://cdn.jsdelivr.net/npm/lucide-react@0.284.0/dist/umd/lucide-react.min.js" crossorigin></script>
-          <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js" crossorigin></script>
+          <script src="https://cdn.jsdelivr.net/npm/framer-motion@10.16.4/dist/framer-motion.js" crossorigin></script>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
           <style>
             body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow-x: hidden; background: #fff; color: #000; min-height: 100vh; }
@@ -275,39 +275,34 @@ export default config;
             const LucideLib = window.LucideReact || window.lucide;
             const MotionLib = window.FramerMotion;
 
-            console.log("Available globals:", { 
+            console.log("Global Check:", { 
               React: !!ReactLib, 
-              LucideReact: !!window.LucideReact, 
-              lucide: !!window.lucide,
-              FramerMotion: !!MotionLib 
+              Lucide: !!LucideLib, 
+              Motion: !!MotionLib 
             });
 
-            if (!LucideLib) {
-              console.error("CRITICAL: Lucide library NOT found. Icons will fail.");
-            }
-
-            // Expose common hooks
-            const hooks = ['useState', 'useEffect', 'useMemo', 'useRef', 'useCallback', 'useLayoutEffect', 'useContext'];
-            hooks.forEach(h => {
-              if (ReactLib && ReactLib[h]) window[h] = ReactLib[h];
-            });
-
-            // Expose icons
-            if (LucideLib) {
-              Object.keys(LucideLib).forEach(key => {
-                if (typeof LucideLib[key] === 'function' || typeof LucideLib[key] === 'object') {
-                  window[key] = LucideLib[key];
-                }
+            // Map React hooks to window
+            if (ReactLib) {
+              ['useState', 'useEffect', 'useMemo', 'useRef', 'useCallback', 'useLayoutEffect', 'useContext'].forEach(h => {
+                window[h] = ReactLib[h];
               });
             }
 
-            // Expose Framer Motion
+            // Spread Lucide components to window
+            if (LucideLib) {
+              Object.assign(window, LucideLib);
+            } else {
+              console.error("Lucide library NOT found!");
+            }
+
+            // Spread Framer Motion to window
             if (MotionLib) {
+              Object.assign(window, MotionLib);
+              // Ensure 'motion' is specifically available
               window.motion = MotionLib.motion;
               window.AnimatePresence = MotionLib.AnimatePresence;
-              Object.keys(MotionLib).forEach(key => {
-                if (key.startsWith('use')) window[key] = MotionLib[key];
-              });
+            } else {
+              console.error("Framer Motion library NOT found!");
             }
 
             let code = \`${escapedCode}\`;
