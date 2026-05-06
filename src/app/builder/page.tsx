@@ -73,21 +73,25 @@ export default function Home() {
     if (!finalPrompt) return;
     
     const userMsg: ChatMessage = { role: "user", content: finalPrompt, timestamp: Date.now() };
-    setMessages(prev => [...prev, userMsg]);
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
     
     setIsGenerating(true);
     setGeneratedCode(""); 
     
     try {
-      const response = await fetch("/api/readdy", {
+      const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: finalPrompt, projectID }),
+        body: JSON.stringify({ 
+          prompt: finalPrompt, 
+          history: updatedMessages.slice(0, -1) // Send history excluding current prompt
+        }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.message || "Failed to connect to Readdy API");
+        throw new Error(errorData.error || errorData.message || "Failed to connect to Gemini AI");
       }
 
       const reader = response.body?.getReader();
@@ -104,14 +108,10 @@ export default function Home() {
             if (line.startsWith("data: ")) {
               try {
                 const data = JSON.parse(line.slice(6));
-                const content = data.content || data.html || data.code || (typeof data === 'string' ? data : "");
+                const content = data.content || (typeof data === 'string' ? data : "");
                 if (content) {
                   fullCode += content;
                   setGeneratedCode(cleanCode(fullCode));
-                }
-                if (data.projectID) {
-                  setProjectID(data.projectID);
-                  localStorage.setItem("readdy_project_id", data.projectID);
                 }
               } catch (e) {}
             }
@@ -119,13 +119,13 @@ export default function Home() {
         }
       }
 
-      const aiMsg: ChatMessage = { role: "ai", content: "Successfully generated your React component!", timestamp: Date.now() };
+      const aiMsg: ChatMessage = { role: "ai", content: "Updated your project successfully!", timestamp: Date.now() };
       setMessages(prev => [...prev, aiMsg]);
       saveToHistory({ prompt: finalPrompt, code: cleanCode(fullCode) });
-      toast.success("Ready for launch!");
-    } catch (error) {
+      toast.success("Design Updated!");
+    } catch (error: any) {
       console.error(error);
-      toast.error("Generation failed.");
+      toast.error(error.message || "Generation failed.");
     } finally {
       setIsGenerating(false);
       setPrompt("");
@@ -266,7 +266,7 @@ export default config;
           </div>
           <div className="flex flex-col">
             <h1 className="text-sm font-bold tracking-tight leading-none uppercase">AI SaaS Builder Pro</h1>
-            <span className="text-[9px] text-zinc-500 font-mono mt-1">ENGINE: READDY_V2_STREAM</span>
+            <span className="text-[9px] text-zinc-500 font-mono mt-1 uppercase tracking-widest">ENGINE: GEMINI_1.5_FLASH</span>
           </div>
         </div>
 
@@ -365,8 +365,8 @@ export default config;
                 />
                 <div className="flex justify-between items-center p-2 pt-0">
                    <div className="flex items-center gap-1.5 opacity-50">
-                      <div className={cn("h-1.5 w-1.5 rounded-full", projectID ? "bg-orange-500" : "bg-zinc-700")}></div>
-                      <span className="text-[9px] font-mono">{projectID?.slice(0,8) || "NEW_SESSION"}</span>
+                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                      <span className="text-[9px] font-mono tracking-widest">LIVE_SESSION_ACTIVE</span>
                    </div>
                   <button
                     onClick={() => handleGenerate()}
