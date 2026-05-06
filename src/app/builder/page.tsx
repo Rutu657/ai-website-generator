@@ -236,7 +236,7 @@ export default config;
           <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
           <style>
-            body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow-x: hidden; background: #fff; color: #000; }
+            body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow-x: hidden; background: #fff; color: #000; min-height: 100vh; }
             ::-webkit-scrollbar { width: 8px; }
             ::-webkit-scrollbar-track { background: #f1f1f1; }
             ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
@@ -261,18 +261,25 @@ export default config;
 
             let code = \`${generatedCode.replace(/`/g, "\\`").replace(/\${/g, "\\${")}\`;
             
-            // Cleanup code for browser execution
-            code = code.replace(/import\\s+.*?\\s+from\\s+['\"].*?['\"];?/g, "");
-            code = code.replace(/export\\s+default\\s+function\\s+(\\w+)/g, "function $1");
-            code = code.replace(/export\\s+default\\s+/g, "const GeneratedWebsite = ");
-            code = code.replace(/export\\s+const\\s+/g, "const ");
+            // Cleanup code for browser execution (Multiline support)
+            code = code.replace(/import[\\s\\S]*?from\\s+['\"].*?['\"];?/g, "");
             
-            // Ensure we have a GeneratedWebsite component
-            if (!code.includes("const GeneratedWebsite") && !code.includes("function GeneratedWebsite")) {
-              // Try to find any function and name it GeneratedWebsite if none found
+            // Handle various export styles
+            if (code.includes("export default function")) {
+              code = code.replace(/export\\s+default\\s+function\\s+(\\w+)/, "function $1");
               const match = code.match(/function\\s+(\\w+)/);
-              if (match) {
-                code += \`\\nconst GeneratedWebsite = \${match[1]};\`;
+              if (match) code += \`\\nconst GeneratedWebsite = \${match[1]};\`;
+            } else if (code.includes("export default")) {
+              code = code.replace(/export\\s+default\\s+/, "const GeneratedWebsite = ");
+            } else if (code.includes("export const")) {
+              code = code.replace(/export\\s+const\\s+/, "const ");
+            }
+
+            // Final fallback: if no GeneratedWebsite, take the first named function
+            if (!code.includes("GeneratedWebsite")) {
+              const funcMatch = code.match(/function\\s+(\\w+)/) || code.match(/const\\s+(\\w+)\\s*=\\s*\\(/);
+              if (funcMatch) {
+                code += \`\\nconst GeneratedWebsite = \${funcMatch[1]};\`;
               }
             }
 
@@ -284,14 +291,30 @@ export default config;
               
               eval(compiled);
               
+              if (typeof GeneratedWebsite === 'undefined') {
+                throw new Error("Could not find a valid React component to render. Ensure your code has a default export or a main function.");
+              }
+
               const root = ReactDOM.createRoot(document.getElementById('root'));
-              root.render(<GeneratedWebsite />);
+              root.render(
+                <React.Suspense fallback={<div>Loading...</div>}>
+                  <GeneratedWebsite />
+                </React.Suspense>
+              );
             } catch (e) {
               console.error("Render Error:", e);
               document.body.innerHTML = \`<div style="color: #ef4444; padding: 32px; font-family: system-ui; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; margin: 20px;">
                 <h3 style="margin-top: 0; font-size: 18px;">Preview Render Error</h3>
-                <pre style="background: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #fee2e2; overflow: auto; font-size: 13px; color: #7f1d1d;">\${e.message}</pre>
-                <p style="font-size: 14px; color: #991b1b;">This usually happens if the AI generated invalid JSX or used a missing library.</p>
+                <p style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">\${e.name}: \${e.message}</p>
+                <pre style="background: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #fee2e2; overflow: auto; font-size: 12px; color: #7f1d1d; line-height: 1.5;">\${e.stack || "No stack trace available"}</pre>
+                <div style="margin-top: 16px; font-size: 13px; color: #991b1b;">
+                  <strong>Tips:</strong>
+                  <ul style="margin: 8px 0 0 20px; padding: 0;">
+                    <li>Check if all imports are removed correctly.</li>
+                    <li>Ensure the component is correctly exported.</li>
+                    <li>Verify there are no syntax errors in the generated code.</li>
+                  </ul>
+                </div>
               </div>\`;
             }
           </script>
