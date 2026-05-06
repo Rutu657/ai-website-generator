@@ -136,7 +136,7 @@ export default function LandingPage() {
                   </div>
                </div>
             </div>
-          </motion.div>Section>
+          </motion.div>
 
         {/* Features Grid */}
         <section id="features" className="px-4 py-32 sm:px-6 lg:px-8 bg-black/20">
