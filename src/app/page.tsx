@@ -1,455 +1,243 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
 import { 
-  Send, Layout, Code, Play, RefreshCw, Wand2, Sparkles, Monitor, Smartphone, Tablet, 
-  ChevronLeft, ChevronRight, Copy, History, Trash2, Maximize2, Globe, ArrowRight,
-  MessageSquare, User, Zap, Download, FileCode, Check, Github, Package
+  Zap, Sparkles, Code2, Download, Rocket, Shield, 
+  ChevronRight, Github, Monitor, Globe, Smartphone, Play, 
+  ArrowRight, CheckCircle2, Star, Users
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import Skeleton, { SkeletonTheme } from "react-loading-skeleton";
-import "react-loading-skeleton/dist/skeleton.css";
-import toast, { Toaster } from "react-hot-toast";
 import { cn } from "@/lib/utils";
-import Editor from "@monaco-editor/react";
-import JSZip from "jszip";
-import { saveAs } from "file-saver";
 
-const SUGGESTIONS = [
-  { label: "AI SaaS Dashboard", prompt: "Futuristic AI SaaS dashboard with glassmorphism and real-time charts" },
-  { label: "Crypto Landing Page", prompt: "Vibrant crypto landing page with 3D elements and dark mode" },
-  { label: "Apple Style Portfolio", prompt: "Minimalist Apple-inspired portfolio with smooth scroll" },
-  { label: "Stripe Style Homepage", prompt: "Stripe-style SaaS homepage with elegant gradients" },
-];
-
-interface ChatMessage {
-  role: "user" | "ai";
-  content: string;
-  timestamp: number;
-}
-
-export default function Home() {
-  const [prompt, setPrompt] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
-  const [projectID, setProjectID] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"preview" | "code" | "prompt">("preview");
-  const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [history, setHistory] = useState<{prompt: string, code: string, timestamp: number}[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isCopied, setIsCopied] = useState(false);
-  
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const savedHistory = localStorage.getItem("gen_history");
-    if (savedHistory) setHistory(JSON.parse(savedHistory));
-    const savedProjectID = localStorage.getItem("readdy_project_id");
-    if (savedProjectID) setProjectID(savedProjectID);
-  }, []);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const saveToHistory = (newEntry: {prompt: string, code: string}) => {
-    const updated = [{ ...newEntry, timestamp: Date.now() }, ...history].slice(0, 10);
-    setHistory(updated);
-    localStorage.setItem("gen_history", JSON.stringify(updated));
-  };
-
-  const cleanCode = (code: string) => {
-    return code
-      .replace(/```(html|jsx|javascript|tsx|react)?/g, "")
-      .replace(/```/g, "")
-      .trim();
-  };
-
-  const handleGenerate = async (customPrompt?: string) => {
-    const finalPrompt = customPrompt || prompt;
-    if (!finalPrompt) return;
-    
-    const userMsg: ChatMessage = { role: "user", content: finalPrompt, timestamp: Date.now() };
-    setMessages(prev => [...prev, userMsg]);
-    
-    setIsGenerating(true);
-    setGeneratedCode(""); 
-    
-    try {
-      const response = await fetch("/api/readdy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: finalPrompt, projectID }),
-      });
-
-      if (!response.ok) throw new Error("Failed to connect to Readdy API");
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let fullCode = "";
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n");
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                const content = data.content || data.html || data.code || (typeof data === 'string' ? data : "");
-                if (content) {
-                  fullCode += content;
-                  setGeneratedCode(cleanCode(fullCode));
-                }
-                if (data.projectID) {
-                  setProjectID(data.projectID);
-                  localStorage.setItem("readdy_project_id", data.projectID);
-                }
-              } catch (e) {}
-            }
-          }
-        }
-      }
-
-      const aiMsg: ChatMessage = { role: "ai", content: "Successfully generated your React component!", timestamp: Date.now() };
-      setMessages(prev => [...prev, aiMsg]);
-      saveToHistory({ prompt: finalPrompt, code: cleanCode(fullCode) });
-      toast.success("Ready for launch!");
-    } catch (error) {
-      console.error(error);
-      toast.error("Generation failed.");
-    } finally {
-      setIsGenerating(false);
-      setPrompt("");
-    }
-  };
-
-  const handleCopyCode = () => {
-    if (generatedCode) {
-      navigator.clipboard.writeText(generatedCode);
-      setIsCopied(true);
-      toast.success("Copied to clipboard!");
-      setTimeout(() => setIsCopied(false), 2000);
-    }
-  };
-
-  // Step 4: Full Next.js Project Export
-  const handleFullExport = async () => {
-    if (!generatedCode) return;
-    
-    const zip = new JSZip();
-    toast.loading("Preparing project zip...", { id: "export" });
-
-    // Add component
-    zip.file("components/GeneratedWebsite.tsx", `
-"use client";
-import React from 'react';
-// Assuming common lucide-react imports or similar based on generation
-export ${generatedCode.includes("export") ? "" : "default"} ${generatedCode}
-    `.trim());
-
-    // Add app/page.tsx
-    zip.file("app/page.tsx", `
-import GeneratedWebsite from '@/components/GeneratedWebsite';
-
-export default function Home() {
+export default function LandingPage() {
   return (
-    <main>
-      <GeneratedWebsite />
-    </main>
+    <div className="flex min-h-screen flex-col bg-[#050505] text-zinc-100 selection:bg-orange-500/30">
+      {/* Navigation */}
+      <nav className="fixed top-0 z-50 w-full border-b border-white/5 bg-black/60 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-red-600 shadow-lg shadow-orange-500/20">
+              <Zap className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-lg font-bold tracking-tight">Readdy Pro</span>
+          </div>
+          
+          <div className="hidden items-center gap-8 md:flex">
+            <a href="#features" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Features</a>
+            <a href="#how-it-works" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Workflow</a>
+            <a href="#pricing" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Pricing</a>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <Link 
+              href="/builder" 
+              className="group relative flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-bold text-black transition-all hover:bg-zinc-200"
+            >
+              Start Building
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </div>
+        </div>
+      </nav>
+
+      <main className="flex-1 pt-20">
+        {/* Hero Section */}
+        <section className="relative overflow-hidden px-4 py-24 sm:px-6 lg:px-8">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_var(--tw-gradient-stops))] from-orange-500/10 via-transparent to-transparent"></div>
+          
+          <div className="mx-auto max-w-5xl text-center">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <span className="inline-flex items-center gap-2 rounded-full border border-orange-500/20 bg-orange-500/5 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-orange-500">
+                <Sparkles className="h-3 w-3" /> AI-Powered Frontend Engineering
+              </span>
+              
+              <h1 className="mt-8 text-5xl font-extrabold tracking-tight sm:text-7xl">
+                Prompt to Production in <span className="bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent">Seconds</span>
+              </h1>
+              
+              <p className="mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-zinc-400">
+                The world's most advanced AI website builder. Generate production-ready React + Tailwind components, 
+                iterate in real-time with AI chat, and export full Next.js projects with one click.
+              </p>
+
+              <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
+                <Link 
+                  href="/builder" 
+                  className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-orange-600 px-8 text-lg font-bold text-white shadow-2xl shadow-orange-600/30 transition-all hover:bg-orange-500 hover:scale-105 sm:w-auto"
+                >
+                  Get Started Free
+                </Link>
+                <a 
+                  href="https://github.com" 
+                  className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-8 text-lg font-bold transition-all hover:bg-white/10 sm:w-auto"
+                >
+                  <Github className="h-5 w-5" /> View on GitHub
+                </a>
+              </div>
+
+              <div className="mt-16 flex items-center justify-center gap-8 opacity-40 grayscale filter">
+                <div className="flex items-center gap-2"><Zap className="h-6 w-6" /> <span className="font-bold">FAST</span></div>
+                <div className="flex items-center gap-2"><Code2 className="h-6 w-6" /> <span className="font-bold">REACT</span></div>
+                <div className="flex items-center gap-2"><Globe className="h-6 w-6" /> <span className="font-bold">WEB</span></div>
+                <div className="flex items-center gap-2"><Rocket className="h-6 w-6" /> <span className="font-bold">SAAS</span></div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Interactive Preview Mockup */}
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3, duration: 0.8 }}
+            className="mx-auto mt-24 max-w-6xl rounded-[2rem] border border-white/10 bg-[#0a0a0a] p-4 shadow-[0_0_100px_-20px_rgba(249,115,22,0.2)]"
+          >
+            <div className="relative overflow-hidden rounded-[1.5rem] bg-[#0d0d0d] shadow-2xl">
+               <div className="flex items-center justify-between border-b border-white/5 bg-[#121212] px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-red-500/50"></div>
+                    <div className="h-3 w-3 rounded-full bg-amber-500/50"></div>
+                    <div className="h-3 w-3 rounded-full bg-emerald-500/50"></div>
+                  </div>
+                  <div className="rounded-full border border-white/5 bg-black/40 px-8 py-1 text-xs text-zinc-500 font-mono">
+                    builder.readdy.pro/new
+                  </div>
+                  <div className="w-12"></div>
+               </div>
+               <div className="grid grid-cols-12 h-[600px]">
+                  <div className="col-span-3 border-r border-white/5 p-6 bg-[#080808]">
+                     <div className="h-4 w-24 rounded bg-white/5 mb-6"></div>
+                     <div className="space-y-4">
+                        <div className="h-10 w-full rounded-xl bg-white/5 border border-white/5 p-3 flex items-center gap-2">
+                           <div className="h-4 w-4 rounded-full bg-orange-500/20"></div>
+                           <div className="h-2 w-20 rounded bg-white/10"></div>
+                        </div>
+                        <div className="h-24 w-full rounded-xl bg-orange-600/5 border border-orange-500/20 p-4">
+                           <div className="h-2 w-full rounded bg-white/10 mb-2"></div>
+                           <div className="h-2 w-2/3 rounded bg-white/10"></div>
+                        </div>
+                     </div>
+                  </div>
+                  <div className="col-span-9 p-10 bg-white flex items-center justify-center">
+                     <div className="text-center">
+                        <div className="h-12 w-12 bg-orange-100 rounded-2xl mx-auto mb-6 flex items-center justify-center">
+                           <Zap className="h-6 w-6 text-orange-600" />
+                        </div>
+                        <div className="h-8 w-64 bg-zinc-900 rounded-lg mx-auto mb-4"></div>
+                        <div className="h-4 w-96 bg-zinc-200 rounded-lg mx-auto mb-8"></div>
+                        <div className="flex gap-4 justify-center">
+                           <div className="h-10 w-32 bg-orange-600 rounded-xl"></div>
+                           <div className="h-10 w-32 bg-zinc-900 rounded-xl"></div>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+          </motion.div>Section>
+
+        {/* Features Grid */}
+        <section id="features" className="px-4 py-32 sm:px-6 lg:px-8 bg-black/20">
+           <div className="mx-auto max-w-7xl">
+              <div className="text-center mb-20">
+                 <h2 className="text-3xl font-bold sm:text-5xl">Engineered for Builders</h2>
+                 <p className="mt-4 text-zinc-500">Everything you need to go from idea to a live product in minutes.</p>
+              </div>
+              
+              <div className="grid gap-8 md:grid-cols-3">
+                 {[
+                   { title: "Iterative AI Chat", icon: <MessageSquare className="h-6 w-6" />, desc: "Don't just generate once. Talk to the AI to refine every detail of your UI." },
+                   { title: "Production React", icon: <Code2 className="h-6 w-6" />, desc: "No more plain HTML. Get modular, production-ready React components." },
+                   { title: "Next.js Projects", icon: <Package className="h-6 w-6" />, desc: "Export a full Next.js project structure with Tailwind, ready for deployment." },
+                   { title: "Streaming Engine", icon: <Zap className="h-6 w-6" />, desc: "See your changes in real-time with our high-speed streaming AI engine." },
+                   { title: "Mobile Responsive", icon: <Smartphone className="h-6 w-6" />, desc: "Every component is built with mobile-first responsiveness out of the box." },
+                   { title: "IDE Integration", icon: <Monitor className="h-6 w-6" />, desc: "Edit your code in a professional-grade Monaco editor directly in browser." }
+                 ].map((f, i) => (
+                   <div key={i} className="group rounded-[2rem] border border-white/5 bg-zinc-900/30 p-8 hover:bg-zinc-900/50 transition-all">
+                      <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-600/10 text-orange-500 group-hover:bg-orange-600 group-hover:text-white transition-all">
+                         {f.icon}
+                      </div>
+                      <h3 className="mb-3 text-xl font-bold">{f.title}</h3>
+                      <p className="text-zinc-500 leading-relaxed">{f.desc}</p>
+                   </div>
+                 ))}
+              </div>
+           </div>
+        </section>
+
+        {/* Call to Action */}
+        <section className="px-4 py-32 sm:px-6 lg:px-8">
+           <div className="mx-auto max-w-5xl rounded-[3rem] bg-gradient-to-br from-orange-600 to-red-700 p-12 text-center shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 h-96 w-96 bg-white/10 rounded-full blur-[100px]"></div>
+              <h2 className="text-4xl font-bold sm:text-6xl mb-6">Start Building Your Next Startup Today.</h2>
+              <p className="text-white/80 text-lg mb-10 max-w-2xl mx-auto">Join 10,000+ builders using Readdy to ship faster than ever before.</p>
+              <Link 
+                href="/builder" 
+                className="inline-flex h-16 items-center px-10 rounded-2xl bg-white text-black font-extrabold text-xl hover:scale-105 transition-all shadow-2xl"
+              >
+                Launch Builder <ArrowRight className="ml-2 h-6 w-6" />
+              </Link>
+           </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-white/5 py-12 px-4 sm:px-6 lg:px-8">
+         <div className="mx-auto max-w-7xl flex flex-col md:flex-row justify-between items-center gap-8">
+            <div className="flex items-center gap-2 opacity-50">
+              <Zap className="h-4 w-4" />
+              <span className="text-sm font-bold">Readdy AI v3.0</span>
+            </div>
+            <div className="flex gap-8 text-sm text-zinc-500">
+               <a href="#" className="hover:text-white">Twitter</a>
+               <a href="#" className="hover:text-white">GitHub</a>
+               <a href="#" className="hover:text-white">Discord</a>
+            </div>
+            <p className="text-sm text-zinc-600">© 2026 Readdy Pro. All rights reserved.</p>
+         </div>
+      </footer>
+    </div>
   );
 }
-    `.trim());
 
-    // Add tailwind config
-    zip.file("tailwind.config.ts", `
-import type { Config } from "tailwindcss";
-
-const config: Config = {
-  content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-};
-export default config;
-    `.trim());
-
-    // Add package.json
-    zip.file("package.json", JSON.stringify({
-      name: "ai-generated-project",
-      version: "0.1.0",
-      private: true,
-      scripts: {
-        dev: "next dev",
-        build: "next build",
-        start: "next start",
-      },
-      dependencies: {
-        "next": "latest",
-        "react": "latest",
-        "react-dom": "latest",
-        "lucide-react": "latest",
-        "clsx": "latest",
-        "tailwind-merge": "latest"
-      },
-      devDependencies: {
-        "typescript": "latest",
-        "@types/node": "latest",
-        "@types/react": "latest",
-        "@types/react-dom": "latest",
-        "tailwindcss": "latest",
-        "postcss": "latest",
-        "autoprefixer": "latest"
-      }
-    }, null, 2));
-
-    zip.file("README.md", "# AI Generated Next.js Project\n\nRun `npm install` and `npm run dev` to start.");
-
-    const content = await zip.generateAsync({ type: "blob" });
-    saveAs(content, `ai-builder-project-${projectID?.slice(0, 5) || 'new'}.zip`);
-    toast.success("Full project exported!", { id: "export" });
-  };
-
-  const getIframeSrcDoc = () => {
-    if (!generatedCode) return "";
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-          <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-          <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-          <script src="https://cdn.tailwindcss.com"></script>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-          <style>
-            body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
-          </style>
-        </head>
-        <body>
-          <div id="root"></div>
-          <script type="text/babel">
-            ${generatedCode.replace(/export default/g, "").replace(/export /g, "")}
-            try {
-              const root = ReactDOM.createRoot(document.getElementById('root'));
-              root.render(<GeneratedWebsite />);
-            } catch (e) {
-              console.error(e);
-            }
-          </script>
-        </body>
-      </html>
-    `;
-  };
-
+function MessageSquare(props: any) {
   return (
-    <div className="flex h-screen flex-col bg-[#050505] text-zinc-100 font-sans selection:bg-orange-500/30 overflow-hidden">
-      <Toaster position="top-right" />
-      
-      {/* Header */}
-      <header className="flex h-14 items-center justify-between border-b border-zinc-800/50 px-4 bg-black/80 backdrop-blur-xl z-50">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-red-600 shadow-lg shadow-orange-500/20">
-            <Zap className="h-5 w-5 text-white" />
-          </div>
-          <div className="flex flex-col">
-            <h1 className="text-sm font-bold tracking-tight leading-none uppercase">AI SaaS Builder Pro</h1>
-            <span className="text-[9px] text-zinc-500 font-mono mt-1">ENGINE: READDY_V2_STREAM</span>
-          </div>
-        </div>
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
 
-        {generatedCode && (
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1 bg-zinc-900/80 p-1 rounded-lg border border-zinc-800">
-              {["preview", "code", "prompt"].map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setActiveTab(t as any)}
-                  className={cn(
-                    "px-3 py-1 rounded-md text-[10px] font-bold transition-all capitalize tracking-wider",
-                    activeTab === t ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-200"
-                  )}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-
-            <div className="hidden md:flex items-center gap-1 bg-zinc-900/80 p-1 rounded-lg border border-zinc-800">
-              <button onClick={() => setDevice("desktop")} className={cn("p-1.5 rounded-md", device === "desktop" ? "text-orange-400 bg-zinc-800" : "text-zinc-500")}>
-                <Monitor className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={() => setDevice("mobile")} className={cn("p-1.5 rounded-md", device === "mobile" ? "text-orange-400 bg-zinc-800" : "text-zinc-500")}>
-                <Smartphone className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2">
-           <button 
-             onClick={handleFullExport}
-             disabled={!generatedCode}
-             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-600 text-white text-[10px] font-bold hover:bg-orange-500 transition-all disabled:opacity-50 shadow-lg shadow-orange-600/20"
-           >
-              <Package className="h-3.5 w-3.5" /> DOWNLOAD FULL PROJECT
-           </button>
-        </div>
-      </header>
-
-      <main className="flex flex-1 overflow-hidden relative">
-        {/* Chat Sidebar */}
-        <motion.div 
-          animate={{ width: isSidebarOpen ? "360px" : "0px", opacity: isSidebarOpen ? 1 : 0 }}
-          className="flex flex-col border-r border-zinc-800/50 bg-[#080808] z-30"
-        >
-          <div className="flex flex-col h-full min-w-[360px]">
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
-              {messages.length === 0 ? (
-                <div className="space-y-6">
-                  <div className="p-4 rounded-xl bg-orange-600/5 border border-orange-500/20">
-                    <h2 className="text-sm font-bold flex items-center gap-2 mb-2">
-                      <Sparkles className="h-4 w-4 text-orange-500" />
-                      Welcome, Engineer.
-                    </h2>
-                    <p className="text-[11px] text-zinc-500 leading-relaxed">I can build entire React components from your description. Try one of the prompts below to start.</p>
-                  </div>
-                  <div className="grid grid-cols-1 gap-2">
-                    {SUGGESTIONS.map((s) => (
-                      <button
-                        key={s.label}
-                        onClick={() => handleGenerate(s.prompt)}
-                        className="flex items-center justify-between p-3 rounded-lg bg-zinc-900/30 border border-zinc-800/50 hover:border-orange-500/40 hover:bg-zinc-900 transition-all text-left"
-                      >
-                        <span className="text-[11px] text-zinc-400">{s.label}</span>
-                        <ArrowRight className="h-3 w-3 text-zinc-700" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                messages.map((msg, i) => (
-                  <div key={i} className={cn(
-                    "flex flex-col max-w-[90%] rounded-2xl p-3.5 text-xs",
-                    msg.role === "user" ? "bg-zinc-900 border border-zinc-800 self-end ml-auto" : "bg-orange-600/10 border border-orange-500/20 self-start"
-                  )}>
-                    <p className={cn("leading-relaxed", msg.role === "user" ? "text-zinc-400" : "text-zinc-100")}>
-                      {msg.content}
-                    </p>
-                  </div>
-                ))
-              )}
-              <div ref={chatEndRef} />
-            </div>
-
-            <div className="p-4 bg-zinc-950/50 border-t border-zinc-800/50">
-              <div className="relative flex flex-col gap-2 rounded-xl bg-zinc-900 border border-zinc-800 p-1">
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleGenerate(); } }}
-                  placeholder="Ask for changes or start new..."
-                  className="min-h-[50px] w-full resize-none bg-transparent p-3 text-zinc-200 placeholder:text-zinc-600 focus:outline-none text-[11px]"
-                />
-                <div className="flex justify-between items-center p-2 pt-0">
-                   <div className="flex items-center gap-1.5 opacity-50">
-                      <div className={cn("h-1.5 w-1.5 rounded-full", projectID ? "bg-orange-500" : "bg-zinc-700")}></div>
-                      <span className="text-[9px] font-mono">{projectID?.slice(0,8) || "NEW_SESSION"}</span>
-                   </div>
-                  <button
-                    onClick={() => handleGenerate()}
-                    disabled={isGenerating || !prompt}
-                    className="h-7 w-7 flex items-center justify-center rounded-lg bg-orange-600 text-white disabled:opacity-50"
-                  >
-                    {isGenerating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Preview / Code Editor */}
-        <div className="flex-1 flex flex-col bg-[#050505] relative overflow-hidden">
-          <div className="flex-1 flex flex-col p-4 md:p-6 overflow-hidden">
-            <AnimatePresence mode="wait">
-              {isGenerating && !generatedCode ? (
-                <motion.div key="loading" className="h-full w-full max-w-5xl mx-auto flex flex-col gap-6">
-                   <div className="flex items-center gap-4">
-                      <div className="h-8 w-8 border-2 border-t-orange-500 border-zinc-800 rounded-full animate-spin"></div>
-                      <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Synthesizing React Project...</span>
-                   </div>
-                   <SkeletonTheme baseColor="#0a0a0a" highlightColor="#121212">
-                      <Skeleton height={400} borderRadius={16} />
-                   </SkeletonTheme>
-                </motion.div>
-              ) : !generatedCode ? (
-                <motion.div key="empty" className="h-full w-full flex flex-col items-center justify-center gap-6 relative">
-                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-orange-500/5 via-transparent to-transparent"></div>
-                   <Zap className="h-16 w-16 text-zinc-900 relative animate-pulse" />
-                   <h2 className="text-xl font-bold tracking-tight text-zinc-600 uppercase tracking-[0.2em]">Ready to Build</h2>
-                </motion.div>
-              ) : (
-                <motion.div key="content" className="h-full w-full flex flex-col gap-4">
-                  {activeTab === "preview" ? (
-                    <div className={cn(
-                      "mx-auto flex flex-col bg-[#0d0d0d] rounded-xl border border-zinc-800 shadow-2xl overflow-hidden transition-all duration-500",
-                      device === "desktop" ? "w-full h-full" : "w-[375px] h-[90%]"
-                    )}>
-                      <div className="h-9 flex items-center justify-between px-4 bg-[#121212] border-b border-zinc-800/80">
-                        <div className="flex items-center gap-1.5">
-                          <div className="h-2.5 w-2.5 rounded-full bg-red-500/50"></div>
-                          <div className="h-2.5 w-2.5 rounded-full bg-amber-500/50"></div>
-                          <div className="h-2.5 w-2.5 rounded-full bg-emerald-500/50"></div>
-                        </div>
-                        <div className="text-[9px] text-zinc-600 font-mono">localhost:3000</div>
-                        <div className="w-10"></div>
-                      </div>
-                      <div className="flex-1 relative bg-white">
-                        <iframe srcDoc={getIframeSrcDoc()} className="h-full w-full border-none" />
-                        {isGenerating && (
-                          <div className="absolute bottom-4 right-4 bg-black px-3 py-1.5 rounded-lg border border-zinc-800 text-[10px] font-bold flex items-center gap-2">
-                             <RefreshCw className="h-3 w-3 animate-spin text-orange-500" /> STREAMING_JSX
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : activeTab === "code" ? (
-                    <div className="flex-1 rounded-xl border border-zinc-800 overflow-hidden shadow-2xl bg-[#1e1e1e]">
-                       <Editor
-                         height="100%"
-                         defaultLanguage="typescript"
-                         theme="vs-dark"
-                         value={generatedCode}
-                         options={{
-                           fontSize: 12,
-                           minimap: { enabled: false },
-                           padding: { top: 20 },
-                           readOnly: true,
-                           scrollBeyondLastLine: false,
-                         }}
-                       />
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center p-10 bg-zinc-900/10 rounded-3xl border border-zinc-800/50">
-                       <MessageSquare className="h-10 w-10 text-orange-500/20 mb-4" />
-                       <p className="text-zinc-500 italic max-w-lg text-sm">"{messages[messages.length-1]?.content}"</p>
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-      </main>
-    </div>
+function Package(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m7.5 4.27 9 5.15" />
+      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+      <path d="m3.3 7 8.7 5 8.7-5" />
+      <path d="M12 22V12" />
+    </svg>
   );
 }
