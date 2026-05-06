@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const { prompt, history } = await req.json();
+  const { prompt, history, existingCode } = await req.json();
 
   const apiKey = process.env.NVIDIA_API_KEY;
 
@@ -19,29 +19,38 @@ CRITICAL RULES:
 1. NO markdown — do not wrap code in \`\`\`jsx, \`\`\`html, or any other code fence.
 2. NO explanations, comments, or text outside the code.
 3. The component name MUST be 'GeneratedWebsite'.
-4. Use standard React hooks (useState, useEffect, useRef, useMemo, useCallback) — they are available globally, no imports needed.
+4. Use React.useState, React.useEffect, React.useRef etc. (always prefix with React.)
 5. For icons, use inline SVG elements — do NOT write any import statements.
 6. Do NOT include any import or export statements.
 7. Return ONLY the bare function: function GeneratedWebsite() { return ( ... ); }
 8. Design must be professional, modern, fully mobile-responsive, and visually stunning.
 9. Use rich Tailwind gradients, glassmorphism, shadows, and animations.
-10. For images, use Unsplash URLs (https://images.unsplash.com/photo-XXXX?w=800&q=80).`;
+10. For images, use Unsplash URLs (https://images.unsplash.com/photo-XXXX?w=800&q=80).
 
-  // Build messages array matching the Python SDK format
+EDITING MODE:
+- If EXISTING_CODE is provided along with a user request, you must MODIFY that existing code.
+- Apply ONLY the changes the user asked for. Keep everything else intact.
+- Do NOT regenerate from scratch — edit the existing code.
+- Return the COMPLETE modified code (the full function, not just the diff).`;
+
+  // Build the user message — include existing code for editing
+  let userMessage = prompt;
+  if (existingCode) {
+    userMessage = `EXISTING_CODE:\n${existingCode}\n\nUSER_REQUEST: ${prompt}\n\nModify the EXISTING_CODE above based on the USER_REQUEST. Return the COMPLETE modified function.`;
+  }
+
   const messages = [
     { role: "system", content: systemInstruction },
-    // Add conversation history
     ...(history || [])
       .filter((msg: any) => msg.role === "user" || msg.role === "ai")
       .map((msg: any) => ({
         role: msg.role === "user" ? "user" : "assistant",
         content: msg.content,
       })),
-    { role: "user", content: prompt },
+    { role: "user", content: userMessage },
   ];
 
   try {
-    // Use native fetch to match the Python SDK behavior exactly
     const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -71,18 +80,13 @@ CRITICAL RULES:
       );
     }
 
-    // Parse the SSE stream and re-emit only the actual content (skip thinking tokens)
     const stream = new ReadableStream({
       async start(controller) {
         const reader = response.body?.getReader();
-        if (!reader) {
-          controller.close();
-          return;
-        }
+        if (!reader) { controller.close(); return; }
 
         const decoder = new TextDecoder();
         let buffer = "";
-        let inThinkingBlock = false;
 
         try {
           while (true) {
@@ -103,26 +107,17 @@ CRITICAL RULES:
                 const delta = parsed.choices?.[0]?.delta;
                 if (!delta) continue;
 
-                // Filter out reasoning/thinking content
-                const reasoning = delta.reasoning_content;
-                if (reasoning) {
-                  // track thinking state but don't emit
-                  inThinkingBlock = true;
-                  continue;
-                }
+                // Skip reasoning content
+                if (delta.reasoning_content) continue;
 
                 const content: string | undefined = delta.content;
                 if (content != null && content !== "") {
-                  inThinkingBlock = false;
-                  // Strip any stray markdown fences
                   const cleaned = content
                     .replace(/```(jsx|javascript|tsx|react|html|typescript)?/g, "")
                     .replace(/```/g, "");
                   if (cleaned) {
                     controller.enqueue(
-                      new TextEncoder().encode(
-                        `data: ${JSON.stringify({ content: cleaned })}\n\n`
-                      )
+                      new TextEncoder().encode(`data: ${JSON.stringify({ content: cleaned })}\n\n`)
                     );
                   }
                 }
@@ -134,9 +129,7 @@ CRITICAL RULES:
         } catch (err: any) {
           console.error("Stream read error:", err);
           controller.enqueue(
-            new TextEncoder().encode(
-              `data: ${JSON.stringify({ error: err.message })}\n\n`
-            )
+            new TextEncoder().encode(`data: ${JSON.stringify({ error: err.message })}\n\n`)
           );
         } finally {
           reader.releaseLock();

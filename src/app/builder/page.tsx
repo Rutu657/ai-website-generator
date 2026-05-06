@@ -74,6 +74,9 @@ export default function Home() {
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     
+    // Save current code before clearing — send it to AI for editing
+    const currentCode = generatedCode;
+    
     setIsGenerating(true);
     setGeneratedCode(""); 
     
@@ -83,7 +86,8 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           prompt: finalPrompt, 
-          history: updatedMessages.slice(0, -1) // Send history excluding current prompt
+          history: updatedMessages.slice(0, -1),
+          existingCode: currentCode || undefined // Send existing code for editing
         }),
       });
 
@@ -313,20 +317,20 @@ export default config;
       var raw = decodeURIComponent(escape(atob('${base64Code}')));
       
       // Strip imports
-      raw = raw.replace(/^import\b[^\n]*\n/gm, '');
+      raw = raw.replace(/^import\\b[^\\n]*\\n/gm, '');
       
       // Strip exports, detect component name
       var compName = 'GeneratedWebsite';
-      raw = raw.replace(/export\s+default\s+function\s+(\w+)/, function(_, n) {
+      raw = raw.replace(/export\\s+default\\s+function\\s+(\\w+)/, function(_, n) {
         compName = n; return 'function ' + n;
       });
-      raw = raw.replace(/export\s+default\s+class\s+(\w+)/, function(_, n) {
+      raw = raw.replace(/export\\s+default\\s+class\\s+(\\w+)/, function(_, n) {
         compName = n; return 'class ' + n;
       });
-      raw = raw.replace(/export\s+default\s+/g, 'window.__exp = ');
-      raw = raw.replace(/export\s+const\s+/g, 'const ');
-      raw = raw.replace(/export\s+function\s+/g, 'function ');
-      raw = raw.replace(/export\s+/g, '');
+      raw = raw.replace(/export\\s+default\\s+/g, 'window.__exp = ');
+      raw = raw.replace(/export\\s+const\\s+/g, 'const ');
+      raw = raw.replace(/export\\s+function\\s+/g, 'function ');
+      raw = raw.replace(/export\\s+/g, '');
 
       // Babel compile
       var compiled;
@@ -348,7 +352,7 @@ export default config;
       // Find the component
       var C = window.GeneratedWebsite || window.__exp || window[compName];
       if (!C) {
-        var m = raw.match(/function\s+(\w+)/);
+        var m = raw.match(/function\\s+(\\w+)/);
         if (m) C = window[m[1]];
       }
       if (!C) {
