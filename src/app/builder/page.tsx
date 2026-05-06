@@ -223,6 +223,13 @@ export default config;
 
   const getIframeSrcDoc = () => {
     if (!generatedCode) return "";
+    
+    // Escape backticks and dollar signs for safe injection into the template string
+    const escapedCode = generatedCode
+      .replace(/\\/g, "\\\\")
+      .replace(/`/g, "\\`")
+      .replace(/\${/g, "\\${");
+
     return `
       <!DOCTYPE html>
       <html>
@@ -237,62 +244,67 @@ export default config;
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
           <style>
             body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow-x: hidden; background: #fff; color: #000; min-height: 100vh; }
-            ::-webkit-scrollbar { width: 8px; }
-            ::-webkit-scrollbar-track { background: #f1f1f1; }
-            ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
-            ::-webkit-scrollbar-thumb:hover { background: #555; }
+            #error-overlay { display: none; position: fixed; inset: 0; background: #fff; z-index: 9999; padding: 24px; color: #ef4444; overflow: auto; }
+            .error-card { background: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; padding: 24px; max-width: 800px; margin: 0 auto; }
+            pre { background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #fee2e2; overflow: auto; font-size: 12px; color: #7f1d1d; margin-top: 12px; }
           </style>
         </head>
         <body>
           <div id="root"></div>
+          <div id="error-overlay">
+            <div class="error-card">
+              <h3 style="margin-top:0">Preview Error</h3>
+              <p id="error-message"></p>
+              <pre id="error-stack"></pre>
+            </div>
+          </div>
+
           <script type="text/babel">
-            // Expose dependencies to global scope
-            const { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } = React;
-            const { motion, AnimatePresence, useScroll, useTransform, useSpring, useInView } = FramerMotion;
-            
-            // Map all Lucide icons to global scope
+            window.onerror = function(message, source, lineno, colno, error) {
+              showError(error || { message });
+            };
+
+            function showError(e) {
+              document.getElementById('error-overlay').style.display = 'block';
+              document.getElementById('error-message').textContent = e.name + ": " + e.message;
+              document.getElementById('error-stack').textContent = e.stack || "No stack trace available";
+            }
+
+            // Global shims for AI-generated code
+            window.React = React;
+            window.ReactDOM = ReactDOM;
+            window.LucideReact = LucideReact;
+            window.FramerMotion = FramerMotion;
+
+            // Expose common hooks
+            const hooks = ['useState', 'useEffect', 'useMemo', 'useRef', 'useCallback', 'useLayoutEffect', 'useContext'];
+            hooks.forEach(h => window[h] = React[h]);
+
+            // Expose icons
             Object.keys(LucideReact).forEach(key => {
-              window[key] = LucideReact[key];
+              if (typeof LucideReact[key] === 'function' || typeof LucideReact[key] === 'object') {
+                window[key] = LucideReact[key];
+              }
             });
 
-            // Map Framer Motion
-            window.motion = motion;
-            window.AnimatePresence = AnimatePresence;
+            // Expose Framer Motion
+            window.motion = FramerMotion.motion;
+            window.AnimatePresence = FramerMotion.AnimatePresence;
+            Object.keys(FramerMotion).forEach(key => {
+              if (key.startsWith('use')) window[key] = FramerMotion[key];
+            });
 
-            let code = \`${generatedCode.replace(/`/g, "\\`").replace(/\${/g, "\\${")}\`;
+            let code = \`${escapedCode}\`;
             
-            // Cleanup code for browser execution (Multiline support)
+            // Clean up code
             code = code.replace(/import[\\s\\S]*?from\\s+['\"].*?['\"];?/g, "");
             
-            // Handle various export styles more safely
-            // 1. Handle "export default SomeComponent;"
-            const exportDefaultMatch = code.match(/export\\s+default\\s+(\\w+);?/);
-            if (exportDefaultMatch) {
-              const componentName = exportDefaultMatch[1];
-              code = code.replace(exportDefaultMatch[0], \`\\nvar GeneratedWebsite = \${componentName};\`);
-            } 
-            // 2. Handle "export default function Name() {}"
-            else if (code.includes("export default function")) {
-              code = code.replace(/export\\s+default\\s+function\\s+(\\w+)/, "function $1");
-              const match = code.match(/function\\s+(\\w+)/);
-              if (match) code += \`\\nvar GeneratedWebsite = \${match[1]};\`;
-            } 
-            // 3. Handle "export default () => {}"
-            else if (code.includes("export default")) {
-              code = code.replace(/export\\s+default\\s+/, "var GeneratedWebsite = ");
-            }
-
-            // Strip other exports
+            // Map exports to window.GeneratedWebsite
+            code = code.replace(/export\\s+default\\s+function\\s+(\\w+)/, "function $1");
+            code = code.replace(/export\\s+default\\s+(\\w+);?/, "window.GeneratedWebsite = $1;");
+            code = code.replace(/export\\s+default\\s+/, "window.GeneratedWebsite = ");
             code = code.replace(/export\\s+const\\s+/g, "var ");
             code = code.replace(/export\\s+function\\s+/g, "function ");
-
-            // Final fallback: if no GeneratedWebsite, take the first named function or const
-            if (!code.includes("GeneratedWebsite")) {
-              const funcMatch = code.match(/function\\s+(\\w+)/) || code.match(/(?:const|var|let)\\s+(\\w+)\\s*=\\s*\\(/);
-              if (funcMatch) {
-                code += \`\\nvar GeneratedWebsite = \${funcMatch[1]};\`;
-              }
-            }
 
             try {
               const compiled = Babel.transform(code, { 
@@ -302,31 +314,27 @@ export default config;
               
               eval(compiled);
               
-              if (typeof GeneratedWebsite === 'undefined') {
-                throw new Error("Could not find a valid React component to render. Check if your code has a function or a default export.");
+              // Fallback if GeneratedWebsite wasn't set by export default
+              if (!window.GeneratedWebsite) {
+                const funcMatch = code.match(/function\\s+(\\w+)/) || code.match(/(?:const|var|let)\\s+(\\w+)\\s*=\\s*\\(/);
+                if (funcMatch) {
+                  window.GeneratedWebsite = window[funcMatch[1]];
+                }
+              }
+
+              if (!window.GeneratedWebsite) {
+                throw new Error("No renderable component found. Ensure you have a default export or a main function.");
               }
 
               const root = ReactDOM.createRoot(document.getElementById('root'));
               root.render(
-                <React.Suspense fallback={<div style={{padding: 20, color: '#666'}}>Loading components...</div>}>
-                  <GeneratedWebsite />
+                <React.Suspense fallback={<div style={{padding: 20}}>Loading...</div>}>
+                  <window.GeneratedWebsite />
                 </React.Suspense>
               );
             } catch (e) {
               console.error("Render Error:", e);
-              document.body.innerHTML = \`<div style="color: #ef4444; padding: 32px; font-family: system-ui; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 12px; margin: 20px;">
-                <h3 style="margin-top: 0; font-size: 18px;">Preview Render Error</h3>
-                <p style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">\${e.name}: \${e.message}</p>
-                <pre style="background: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #fee2e2; overflow: auto; font-size: 12px; color: #7f1d1d; line-height: 1.5;">\${e.stack || "No stack trace available"}</pre>
-                <div style="margin-top: 16px; font-size: 13px; color: #991b1b;">
-                  <strong>Troubleshooting:</strong>
-                  <ul style="margin: 8px 0 0 20px; padding: 0; line-height: 1.6;">
-                    <li>Check the <b>Code</b> tab for syntax errors.</li>
-                    <li>Ensure the component is exported or defined as a function.</li>
-                    <li>If using multiple components, make sure the main one is exported as default.</li>
-                  </ul>
-                </div>
-              </div>\`;
+              showError(e);
             }
           </script>
         </body>
