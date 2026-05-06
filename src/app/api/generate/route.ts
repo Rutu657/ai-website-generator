@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import OpenAI from "openai";
 
 export async function POST(req: NextRequest) {
   const { prompt, history } = await req.json();
@@ -13,83 +12,135 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const client = new OpenAI({
-    baseURL: "https://integrate.api.nvidia.com/v1",
-    apiKey: apiKey,
-  });
-
   const systemInstruction = `You are an expert React and Tailwind CSS frontend engineer.
 Generate only production-ready React components using TailwindCSS.
 
 CRITICAL RULES:
-1. NO markdown (no \`\`\`jsx or \`\`\`html blocks).
-2. NO explanations or text outside the code.
+1. NO markdown — do not wrap code in \`\`\`jsx, \`\`\`html, or any other code fence.
+2. NO explanations, comments, or text outside the code.
 3. The component name MUST be 'GeneratedWebsite'.
-4. Use standard React hooks (useState, useEffect, useRef, useMemo, useCallback) if needed — they are available globally.
-5. For icons, use inline SVGs — do NOT use any import statements.
-6. Ensure the design is professional, modern, mobile-responsive, and visually stunning.
-7. Return ONLY the raw component code — just the function like:
-   function GeneratedWebsite() { return ( ... ); }
-8. Do NOT include any import or export statements whatsoever.
-9. For images, use high-quality Unsplash image URLs (https://images.unsplash.com/...).
-10. Use rich gradients, glassmorphism effects, and modern design patterns.`;
+4. Use standard React hooks (useState, useEffect, useRef, useMemo, useCallback) — they are available globally, no imports needed.
+5. For icons, use inline SVG elements — do NOT write any import statements.
+6. Do NOT include any import or export statements.
+7. Return ONLY the bare function: function GeneratedWebsite() { return ( ... ); }
+8. Design must be professional, modern, fully mobile-responsive, and visually stunning.
+9. Use rich Tailwind gradients, glassmorphism, shadows, and animations.
+10. For images, use Unsplash URLs (https://images.unsplash.com/photo-XXXX?w=800&q=80).`;
 
-  // Build multi-turn messages
-  const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
+  // Build messages array matching the Python SDK format
+  const messages = [
     { role: "system", content: systemInstruction },
-    // Include conversation history (exclude the current prompt)
+    // Add conversation history
     ...(history || [])
       .filter((msg: any) => msg.role === "user" || msg.role === "ai")
       .map((msg: any) => ({
-        role: (msg.role === "user" ? "user" : "assistant") as "user" | "assistant",
+        role: msg.role === "user" ? "user" : "assistant",
         content: msg.content,
       })),
     { role: "user", content: prompt },
   ];
 
   try {
-    const completion = await client.chat.completions.create({
-      model: "z-ai/glm4.7",
-      messages,
-      temperature: 1,
-      top_p: 1,
-      max_tokens: 16384,
-      extra_body: {
+    // Use native fetch to match the Python SDK behavior exactly
+    const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      },
+      body: JSON.stringify({
+        model: "z-ai/glm4.7",
+        messages,
+        temperature: 1,
+        top_p: 1,
+        max_tokens: 16384,
+        stream: true,
         chat_template_kwargs: {
           enable_thinking: true,
-          clear_thinking: true, // Strip <think> blocks from output
+          clear_thinking: false,
         },
-      },
-      stream: true,
-    } as any);
+      }),
+    });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`NVIDIA API error ${response.status}:`, errorText);
+      return new Response(
+        JSON.stringify({ error: `NVIDIA API error ${response.status}: ${errorText || "No details"}` }),
+        { status: response.status, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Parse the SSE stream and re-emit only the actual content (skip thinking tokens)
     const stream = new ReadableStream({
       async start(controller) {
+        const reader = response.body?.getReader();
+        if (!reader) {
+          controller.close();
+          return;
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let inThinkingBlock = false;
+
         try {
-          for await (const chunk of completion as any) {
-            if (!chunk.choices || chunk.choices.length === 0) continue;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-            const delta = chunk.choices[0]?.delta;
-            if (!delta) continue;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() ?? "";
 
-            // Skip reasoning/thinking tokens — only stream actual content
-            const content = delta.content;
-            if (content) {
-              // Strip any markdown fences the model sneaks in
-              const cleaned = content
-                .replace(/```(jsx|javascript|tsx|react|html|typescript)?/g, "")
-                .replace(/```/g, "");
-              if (cleaned) {
-                controller.enqueue(`data: ${JSON.stringify({ content: cleaned })}\n\n`);
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const raw = line.slice(6).trim();
+              if (raw === "[DONE]") continue;
+
+              try {
+                const parsed = JSON.parse(raw);
+                const delta = parsed.choices?.[0]?.delta;
+                if (!delta) continue;
+
+                // Filter out reasoning/thinking content
+                const reasoning = delta.reasoning_content;
+                if (reasoning) {
+                  // track thinking state but don't emit
+                  inThinkingBlock = true;
+                  continue;
+                }
+
+                const content: string | undefined = delta.content;
+                if (content != null && content !== "") {
+                  inThinkingBlock = false;
+                  // Strip any stray markdown fences
+                  const cleaned = content
+                    .replace(/```(jsx|javascript|tsx|react|html|typescript)?/g, "")
+                    .replace(/```/g, "");
+                  if (cleaned) {
+                    controller.enqueue(
+                      new TextEncoder().encode(
+                        `data: ${JSON.stringify({ content: cleaned })}\n\n`
+                      )
+                    );
+                  }
+                }
+              } catch {
+                // Ignore malformed chunks
               }
             }
           }
         } catch (err: any) {
-          console.error("NVIDIA stream error:", err);
+          console.error("Stream read error:", err);
           controller.enqueue(
-            `data: ${JSON.stringify({ error: err.message || "Stream error" })}\n\n`
+            new TextEncoder().encode(
+              `data: ${JSON.stringify({ error: err.message })}\n\n`
+            )
           );
         } finally {
+          reader.releaseLock();
           controller.close();
         }
       },
@@ -103,7 +154,7 @@ CRITICAL RULES:
       },
     });
   } catch (error: any) {
-    console.error("NVIDIA API Error:", error);
+    console.error("NVIDIA fetch error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
