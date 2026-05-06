@@ -44,11 +44,12 @@ export async function POST(req: NextRequest) {
     ];
 
     const response = await openai.chat.completions.create({
-      model: "z-ai/glm-4-9b-chat", // Using a stable available model or the one specified
+      model: "z-ai/glm4.7",
       messages: messages as any,
-      temperature: 0.7,
+      temperature: 1,
       top_p: 1,
-      max_tokens: 4096,
+      max_tokens: 16384,
+      extra_body: { "chat_template_kwargs": { "enable_thinking": true, "clear_thinking": false } },
       stream: true,
     });
 
