@@ -235,11 +235,11 @@ export default config;
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" crossorigin="anonymous"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -259,83 +259,94 @@ export default config;
     </div>
   </div>
   <script>
-    window.onerror = function(msg, src, line, col, err) {
-      showError(err || { message: msg, stack: 'line ' + line + ', col ' + col });
-    };
-    function showError(e) {
+    function showError(title, detail, stack) {
       document.getElementById('error-overlay').style.display = 'block';
-      document.getElementById('error-message').textContent = (e.name || 'Error') + ': ' + e.message;
-      document.getElementById('error-stack').textContent = e.stack || 'No stack trace';
+      document.getElementById('error-message').textContent = title + ': ' + detail;
+      document.getElementById('error-stack').textContent = stack || '(no stack)';
     }
 
-    // Expose React hooks globally
-    var R = window.React;
-    if (R) {
-      ['useState','useEffect','useMemo','useRef','useCallback','useLayoutEffect','useContext','useReducer','useId'].forEach(function(h){window[h]=R[h];});
-    }
-
-    // Expose Lucide icons globally
-    if (window.lucide) {
-      Object.keys(window.lucide).forEach(function(k){ window[k] = window.lucide[k]; });
-    }
-
-    // Minimal framer-motion shim (passthrough wrappers)
-    window.motion = new Proxy({}, {
-      get: function(_, tag) {
-        return React.forwardRef(function(props, ref) {
-          var _props = Object.assign({}, props, { ref: ref });
-          delete _props.initial; delete _props.animate; delete _props.exit;
-          delete _props.transition; delete _props.variants; delete _props.whileHover;
-          delete _props.whileTap; delete _props.whileInView; delete _props.layout;
-          return React.createElement(tag, _props);
-        });
+    function setupGlobals() {
+      // React hooks
+      var R = window.React;
+      if (R) {
+        ['useState','useEffect','useMemo','useRef','useCallback',
+         'useLayoutEffect','useContext','useReducer','useId','useTransition'
+        ].forEach(function(h){ window[h] = R[h]; });
       }
-    });
-    window.AnimatePresence = function(props){ return props.children || null; };
-  </script>
-  <script type="text/babel" data-presets="react">
-    try {
-      var __rawCode = \`${escapedCode}\`;
+      // Lucide icons
+      if (window.lucide) {
+        Object.keys(window.lucide).forEach(function(k){ window[k] = window.lucide[k]; });
+      }
+      // Framer-motion passthrough shim
+      window.motion = new Proxy({}, {
+        get: function(_, tag) {
+          return React.forwardRef(function(props, ref) {
+            var p = Object.assign({}, props, { ref: ref });
+            ['initial','animate','exit','transition','variants',
+             'whileHover','whileTap','whileInView','layout','layoutId'
+            ].forEach(function(k){ delete p[k]; });
+            return React.createElement(tag, p);
+          });
+        }
+      });
+      window.AnimatePresence = function(p){ return p.children || null; };
+      window.useAnimation = function(){ return {}; };
+      window.useScroll = function(){ return { scrollY: { get: function(){return 0;} } }; };
+      window.useTransform = function(v,_,o){ return o ? o[0] : v; };
+    }
 
-      // Strip all import statements
-      __rawCode = __rawCode.replace(/^import[^;\n]*[;\n]/gm, '');
+    function renderPreview() {
+      setupGlobals();
+      var __rawCode = window.__generatedCode || '';
 
-      // Strip export keywords, capture main component name if using export default
+      // Strip imports
+      __rawCode = __rawCode.replace(/^import[\s\S]*?from\s+['"'][^'"]+['"'];?\n?/gm, '');
+      __rawCode = __rawCode.replace(/^import\s+['"'][^'"]+['"'];?\n?/gm, '');
+
+      // Strip exports
       var __compName = 'GeneratedWebsite';
-      __rawCode = __rawCode.replace(/export\s+default\s+function\s+(\w+)/, function(_, name) {
-        __compName = name;
-        return 'function ' + name;
-      });
-      __rawCode = __rawCode.replace(/export\s+default\s+class\s+(\w+)/, function(_, name) {
-        __compName = name;
-        return 'class ' + name;
-      });
+      __rawCode = __rawCode.replace(/export\s+default\s+function\s+(\w+)/, function(_, n){ __compName = n; return 'function ' + n; });
+      __rawCode = __rawCode.replace(/export\s+default\s+class\s+(\w+)/, function(_, n){ __compName = n; return 'class ' + n; });
       __rawCode = __rawCode.replace(/export\s+default\s+/g, 'window.__defaultExport = ');
       __rawCode = __rawCode.replace(/export\s+const\s+/g, 'const ');
       __rawCode = __rawCode.replace(/export\s+function\s+/g, 'function ');
 
-      eval(Babel.transform(__rawCode, { presets: ['react'] }).code);
+      var compiled;
+      try {
+        compiled = Babel.transform(__rawCode, { presets: ['react'], filename: 'preview.jsx' }).code;
+      } catch(babelErr) {
+        showError('Compile Error', babelErr.message, __rawCode.slice(0, 500));
+        return;
+      }
 
-      var Comp = window.GeneratedWebsite
-        || window.__defaultExport
-        || window[__compName];
+      try {
+        eval(compiled);
+      } catch(evalErr) {
+        showError('Runtime Error', evalErr.message, evalErr.stack);
+        return;
+      }
 
+      var Comp = window.GeneratedWebsite || window.__defaultExport || window[__compName];
       if (!Comp) {
-        // Last-resort: look for any function that returns JSX
         var m = __rawCode.match(/function\s+(\w+)/);
         if (m) Comp = window[m[1]];
       }
+      if (!Comp) {
+        showError('Component Error', 'No renderable component found', 'Ensure the AI returns: function GeneratedWebsite() { return ( ... ); }');
+        return;
+      }
 
-      if (!Comp) throw new Error('No renderable component found. The AI may have returned invalid code.');
-
-      var root = ReactDOM.createRoot(document.getElementById('root'));
-      root.render(React.createElement(React.StrictMode, null, React.createElement(Comp)));
-    } catch(e) {
-      console.error('Preview Error:', e);
-      document.getElementById('error-overlay').style.display = 'block';
-      document.getElementById('error-message').textContent = (e.name || 'Error') + ': ' + e.message;
-      document.getElementById('error-stack').textContent = e.stack || 'No stack trace';
+      try {
+        var root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(Comp));
+      } catch(renderErr) {
+        showError('Render Error', renderErr.message, renderErr.stack);
+      }
     }
+
+    window.__generatedCode = \`${escapedCode}\`;
+    // Wait for all CDN scripts to finish loading
+    window.addEventListener('load', renderPreview);
   </script>
 </body>
 </html>`;

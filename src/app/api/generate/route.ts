@@ -52,13 +52,12 @@ CRITICAL RULES:
       body: JSON.stringify({
         model: "z-ai/glm4.7",
         messages,
-        temperature: 1,
+        temperature: 0.7,
         top_p: 1,
-        max_tokens: 16384,
+        max_tokens: 8192,
         stream: true,
         chat_template_kwargs: {
-          enable_thinking: true,
-          clear_thinking: false,
+          enable_thinking: false,
         },
       }),
     });
