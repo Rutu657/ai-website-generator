@@ -238,8 +238,7 @@ export default config;
           <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
           <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
           <script src="https://cdn.tailwindcss.com"></script>
-          <script src="https://unpkg.com/lucide@latest"></script>
-          <script src="https://unpkg.com/lucide-react@latest"></script>
+          <script src="https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.min.js"></script>
           <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
           <style>
@@ -271,28 +270,33 @@ export default config;
             }
 
             // Global shims for AI-generated code
-            window.React = React;
-            window.ReactDOM = ReactDOM;
-            window.LucideReact = LucideReact;
-            window.FramerMotion = FramerMotion;
+            const ReactLib = window.React;
+            const LucideLib = window.LucideReact || window.lucide;
+            const MotionLib = window.FramerMotion;
+
+            if (!LucideLib) console.warn("Lucide library not found in global scope.");
 
             // Expose common hooks
             const hooks = ['useState', 'useEffect', 'useMemo', 'useRef', 'useCallback', 'useLayoutEffect', 'useContext'];
-            hooks.forEach(h => window[h] = React[h]);
+            hooks.forEach(h => window[h] = ReactLib[h]);
 
             // Expose icons
-            Object.keys(LucideReact).forEach(key => {
-              if (typeof LucideReact[key] === 'function' || typeof LucideReact[key] === 'object') {
-                window[key] = LucideReact[key];
-              }
-            });
+            if (LucideLib) {
+              Object.keys(LucideLib).forEach(key => {
+                if (typeof LucideLib[key] === 'function' || typeof LucideLib[key] === 'object') {
+                  window[key] = LucideLib[key];
+                }
+              });
+            }
 
             // Expose Framer Motion
-            window.motion = FramerMotion.motion;
-            window.AnimatePresence = FramerMotion.AnimatePresence;
-            Object.keys(FramerMotion).forEach(key => {
-              if (key.startsWith('use')) window[key] = FramerMotion[key];
-            });
+            if (MotionLib) {
+              window.motion = MotionLib.motion;
+              window.AnimatePresence = MotionLib.AnimatePresence;
+              Object.keys(MotionLib).forEach(key => {
+                if (key.startsWith('use')) window[key] = MotionLib[key];
+              });
+            }
 
             let code = \`${escapedCode}\`;
             
