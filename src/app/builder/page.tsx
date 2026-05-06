@@ -47,8 +47,6 @@ export default function Home() {
   useEffect(() => {
     const savedHistory = localStorage.getItem("gen_history");
     if (savedHistory) setHistory(JSON.parse(savedHistory));
-    const savedProjectID = localStorage.getItem("readdy_project_id");
-    if (savedProjectID) setProjectID(savedProjectID);
   }, []);
 
   useEffect(() => {
