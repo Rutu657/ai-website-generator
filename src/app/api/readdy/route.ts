@@ -4,7 +4,11 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { prompt, projectID } = body;
 
+  console.log("DEBUG: Request received", { hasPrompt: !!prompt, projectID });
+  console.log("DEBUG: API Key present:", !!process.env.READDY_API_KEY);
+
   if (!process.env.READDY_API_KEY) {
+    console.error("CRITICAL: READDY_API_KEY is missing from environment variables!");
     return new Response(JSON.stringify({ error: "READDY_API_KEY is not set" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
