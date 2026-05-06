@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const { prompt, projectID } = await req.json();
+  const body = await req.json();
+  const { prompt, projectID } = body;
 
   if (!process.env.READDY_API_KEY) {
     return new Response(JSON.stringify({ error: "READDY_API_KEY is not set" }), {
@@ -11,10 +12,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Ensure the key is clean and handles the Bearer prefix correctly
+    const apiKey = process.env.READDY_API_KEY || "";
+    const authHeader = apiKey.startsWith("rdy_") ? `Bearer ${apiKey}` : apiKey;
+
     const response = await fetch("https://readdy.ai/api/project/generate", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.READDY_API_KEY}`,
+        "Authorization": authHeader,
         "Content-Type": "application/json",
         "Accept": "text/event-stream",
       },
