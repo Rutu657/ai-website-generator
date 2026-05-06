@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       max_tokens: 16384,
       extra_body: { "chat_template_kwargs": { "enable_thinking": true, "clear_thinking": false } },
       stream: true,
-    });
+    } as any);
 
     const stream = new ReadableStream({
       async start(controller) {
