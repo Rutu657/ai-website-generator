@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import Editor from "@monaco-editor/react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+import { getIframeHtml } from "./iframe-render";
 
 const SUGGESTIONS = [
   { label: "AI SaaS Dashboard", prompt: "Futuristic AI SaaS dashboard with glassmorphism and real-time charts" },
@@ -227,157 +228,12 @@ export default config;
 
   const getIframeSrcDoc = () => {
     if (!generatedCode) return "";
-
-    // Base64-encode the generated code to avoid ALL escaping issues
     const base64Code = typeof window !== 'undefined' 
       ? btoa(unescape(encodeURIComponent(generatedCode)))
       : Buffer.from(generatedCode, 'utf-8').toString('base64');
-
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin="anonymous"><\/script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin="anonymous"><\/script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin="anonymous"><\/script>
-  <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"><\/script>
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js" crossorigin="anonymous"><\/script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    *, *::before, *::after { box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #fff; color: #000; min-height: 100vh; }
-    #error-overlay { display: none; position: fixed; inset: 0; background: #fff; z-index: 9999; padding: 24px; overflow: auto; }
-    .error-card { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 12px; padding: 24px; max-width: 860px; margin: 0 auto; color: #b91c1c; font-family: 'Inter', monospace; }
-    .error-card h3 { margin: 0 0 8px; font-size: 16px; }
-    .error-card p { font-weight: 600; margin: 0 0 4px; font-size: 13px; }
-    pre { background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #fca5a5; overflow: auto; font-size: 11px; color: #7f1d1d; margin-top: 12px; white-space: pre-wrap; word-break: break-all; }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
-  <div id="error-overlay">
-    <div class="error-card">
-      <h3>⚠ Preview Render Error</h3>
-      <p id="error-message"></p>
-      <pre id="error-stack"></pre>
-    </div>
-  </div>
-  <script>
-    // === Error display ===
-    function showError(title, detail, stack) {
-      document.getElementById('error-overlay').style.display = 'block';
-      document.getElementById('error-message').textContent = title + ': ' + detail;
-      document.getElementById('error-stack').textContent = stack || '(no stack)';
-    }
-    window.onerror = function(msg, src, line, col, err) {
-      if (msg === 'Script error.' && line === 0) return; // Ignore cross-origin noise
-      showError('Error', String(msg), err ? err.stack : 'line ' + line + ', col ' + col);
-    };
-
-    // === Setup globals after libs load ===
-    function setupGlobals() {
-      var R = window.React;
-      if (R) {
-        var hooks = ['useState','useEffect','useMemo','useRef','useCallback',
-          'useLayoutEffect','useContext','useReducer','useId','useTransition',
-          'createElement','Fragment','Children','cloneElement','createContext',
-          'forwardRef','memo','lazy','Suspense','StrictMode'];
-        hooks.forEach(function(h){ if(R[h]) window[h] = R[h]; });
-      }
-      if (window.lucide) {
-        Object.keys(window.lucide).forEach(function(k){ window[k] = window.lucide[k]; });
-      }
-      // framer-motion shim
-      window.motion = new Proxy({}, {
-        get: function(_, tag) {
-          return React.forwardRef(function(props, ref) {
-            var p = Object.assign({}, props, { ref: ref });
-            ['initial','animate','exit','transition','variants','whileHover',
-             'whileTap','whileInView','layout','layoutId','drag','dragConstraints',
-             'onDrag','onDragEnd','onDragStart','viewport'
-            ].forEach(function(k){ delete p[k]; });
-            return React.createElement(tag, p);
-          });
-        }
-      });
-      window.AnimatePresence = function(p){ return p.children || null; };
-      window.useAnimation = function(){ return {}; };
-      window.useScroll = function(){ return { scrollY: { get:function(){return 0;} } }; };
-      window.useTransform = function(v,i,o){ return o ? o[0] : v; };
-      window.useInView = function(){ return [null, true]; };
-      window.useMotionValue = function(v){ return { get:function(){return v;}, set:function(){} }; };
-    }
-
-    // === Main render ===
-    function renderPreview() {
-      setupGlobals();
-      
-      // Decode the base64-encoded code
-      var raw = decodeURIComponent(escape(atob('${base64Code}')));
-      
-      // Strip imports
-      raw = raw.replace(/^import\\b[^\\n]*\\n/gm, '');
-      
-      // Strip exports, detect component name
-      var compName = 'GeneratedWebsite';
-      raw = raw.replace(/export\\s+default\\s+function\\s+(\\w+)/, function(_, n) {
-        compName = n; return 'function ' + n;
-      });
-      raw = raw.replace(/export\\s+default\\s+class\\s+(\\w+)/, function(_, n) {
-        compName = n; return 'class ' + n;
-      });
-      raw = raw.replace(/export\\s+default\\s+/g, 'window.__exp = ');
-      raw = raw.replace(/export\\s+const\\s+/g, 'const ');
-      raw = raw.replace(/export\\s+function\\s+/g, 'function ');
-      raw = raw.replace(/export\\s+/g, '');
-
-      // Babel compile
-      var compiled;
-      try {
-        compiled = Babel.transform(raw, { presets: ['react'], filename: 'preview.jsx' }).code;
-      } catch(e) {
-        showError('Babel Compile Error', e.message, raw.substring(0, 600));
-        return;
-      }
-
-      // Eval
-      try {
-        eval(compiled);
-      } catch(e) {
-        showError('Runtime Error', e.message, e.stack);
-        return;
-      }
-
-      // Find the component
-      var C = window.GeneratedWebsite || window.__exp || window[compName];
-      if (!C) {
-        var m = raw.match(/function\\s+(\\w+)/);
-        if (m) C = window[m[1]];
-      }
-      if (!C) {
-        showError('Component Error', 'No renderable component found', 
-          'The AI response must contain: function GeneratedWebsite() { return (...); }');
-        return;
-      }
-
-      // Render
-      try {
-        var root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(React.createElement(C));
-      } catch(e) {
-        showError('React Render Error', e.message, e.stack);
-      }
-    }
-
-    // Run after all CDN scripts finish loading
-    window.addEventListener('load', function() {
-      try { renderPreview(); } catch(e) { showError('Fatal', e.message, e.stack); }
-    });
-  <\/script>
-</body>
-</html>`;
+    return getIframeHtml(base64Code);
   };
+
 
   return (
     <div className="flex h-screen flex-col bg-[#050505] text-zinc-100 font-sans selection:bg-orange-500/30 overflow-hidden">
