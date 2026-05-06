@@ -1,0 +1,140 @@
+﻿function GeneratedWebsite() {
+  const [display, setDisplay] = React.useState("0");
+  const [previousValue, setPreviousValue] = React.useState(null);
+  const [operator, setOperator] = React.useState(null);
+  const [waitingForNewValue, setWaitingForNewValue] = React.useState(false);
+
+  const handleNumber = (num) => {
+    if (waitingForNewValue) {
+      setDisplay(String(num));
+      setWaitingForNewValue(false);
+    } else {
+      setDisplay(display === "0" ? String(num) : display + num);
+    }
+  };
+
+  const handleOperator = (nextOperator) => {
+    const value = parseFloat(display);
+
+    if (previousValue === null) {
+      setPreviousValue(value);
+    } else if (operator) {
+      const result = calculate(previousValue, value, operator);
+      setDisplay(String(result));
+      setPreviousValue(result);
+    }
+
+    setWaitingForNewValue(true);
+    setOperator(nextOperator);
+  };
+
+  const calculate = (a, b, op) => {
+    switch (op) {
+      case "+": return a + b;
+      case "-": return a - b;
+      case "*": return a * b;
+      case "/": return b !== 0 ? a / b : "Error";
+      default: return b;
+    }
+  };
+
+  const handleEqual = () => {
+    if (!operator || previousValue === null) return;
+
+    const value = parseFloat(display);
+    const result = calculate(previousValue, value, operator);
+
+    setDisplay(String(result));
+    setPreviousValue(null);
+    setOperator(null);
+    setWaitingForNewValue(true);
+  };
+
+  const handleClear = () => {
+    setDisplay("0");
+    setPreviousValue(null);
+    setOperator(null);
+    setWaitingForNewValue(false);
+  };
+
+  const styles = {
+    container: {
+      maxWidth: '300px',
+      margin: '50px auto',
+      padding: '20px',
+      border: '1px solid #ccc',
+      borderRadius: '10px',
+      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+      fontFamily: 'Arial, sans-serif',
+      backgroundColor: '#f9f9f9'
+    },
+    display: {
+      width: '100%',
+      height: '50px',
+      marginBottom: '15px',
+      padding: '10px',
+      fontSize: '24px',
+      textAlign: 'right',
+      boxSizing: 'border-box',
+      border: '1px solid #ddd',
+      borderRadius: '5px',
+      backgroundColor: '#fff'
+    },
+    grid: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(4, 1fr)',
+      gap: '10px'
+    },
+    button: {
+      padding: '15px',
+      fontSize: '18px',
+      cursor: 'pointer',
+      border: 'none',
+      borderRadius: '5px',
+      backgroundColor: '#e0e0e0',
+      transition: 'background 0.2s'
+    },
+    buttonOp: {
+      backgroundColor: '#f0a500',
+      color: '#fff'
+    },
+    buttonEq: {
+      backgroundColor: '#4caf50',
+      color: '#fff',
+      gridColumn: 'span 2'
+    },
+    buttonClr: {
+      backgroundColor: '#f44336',
+      color: '#fff'
+    }
+  };
+
+  return (
+    <div style={styles.container}>
+      <div style={styles.display}>{display}</div>
+      <div style={styles.grid}>
+        <button style={{...styles.button, ...styles.buttonClr}} onClick={handleClear}>C</button>
+        <button style={styles.button} onClick={() => handleOperator("/")}>/</button>
+        <button style={styles.button} onClick={() => handleOperator("*")}>*</button>
+        <button style={styles.button} onClick={() => handleOperator("-")}>-</button>
+        
+        <button style={styles.button} onClick={() => handleNumber(7)}>7</button>
+        <button style={styles.button} onClick={() => handleNumber(8)}>8</button>
+        <button style={styles.button} onClick={() => handleNumber(9)}>9</button>
+        <button style={{...styles.button, ...styles.buttonOp}} onClick={() => handleOperator("+")}>+</button>
+        
+        <button style={styles.button} onClick={() => handleNumber(4)}>4</button>
+        <button style={styles.button} onClick={() => handleNumber(5)}>5</button>
+        <button style={styles.button} onClick={() => handleNumber(6)}>6</button>
+        
+        <button style={styles.button} onClick={() => handleNumber(1)}>1</button>
+        <button style={styles.button} onClick={() => handleNumber(2)}>2</button>
+        <button style={styles.button} onClick={() => handleNumber(3)}>3</button>
+        <button style={{...styles.button, ...styles.buttonEq}} onClick={handleEqual}>=</button>
+        
+        <button style={{...styles.button, gridColumn: 'span 2'}} onClick={() => handleNumber(0)}>0</button>
+        <button style={styles.button} onClick={() => handleNumber(".")}>.</button>
+      </div>
+    </div>
+  );
+}
