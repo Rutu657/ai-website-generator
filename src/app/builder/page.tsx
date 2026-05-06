@@ -234,12 +234,13 @@ export default config;
       <!DOCTYPE html>
       <html>
         <head>
-          <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-          <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+          <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+          <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
           <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
           <script src="https://cdn.tailwindcss.com"></script>
-          <script src="https://cdn.jsdelivr.net/npm/lucide-react@0.284.0/dist/umd/lucide-react.min.js" crossorigin></script>
-          <script src="https://cdn.jsdelivr.net/npm/framer-motion@10.16.4/dist/framer-motion.js" crossorigin></script>
+          <script src="https://unpkg.com/lucide@latest"></script>
+          <script src="https://unpkg.com/lucide-react@0.284.0/dist/umd/lucide-react.min.js" crossorigin></script>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/framer-motion/10.16.4/framer-motion.js" crossorigin></script>
           <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
           <style>
             body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow-x: hidden; background: #fff; color: #000; min-height: 100vh; }
@@ -273,7 +274,7 @@ export default config;
             // Global shims for AI-generated code
             const ReactLib = window.React;
             const LucideLib = window.LucideReact || window.lucide;
-            const MotionLib = window.FramerMotion;
+            const MotionLib = window.FramerMotion || window.Motion;
 
             console.log("Global Check:", { 
               React: !!ReactLib, 
@@ -291,18 +292,15 @@ export default config;
             // Spread Lucide components to window
             if (LucideLib) {
               Object.assign(window, LucideLib);
-            } else {
-              console.error("Lucide library NOT found!");
+              // Handle potential nesting in some UMD builds
+              if (LucideLib.icons) Object.assign(window, LucideLib.icons);
             }
 
             // Spread Framer Motion to window
             if (MotionLib) {
               Object.assign(window, MotionLib);
-              // Ensure 'motion' is specifically available
               window.motion = MotionLib.motion;
               window.AnimatePresence = MotionLib.AnimatePresence;
-            } else {
-              console.error("Framer Motion library NOT found!");
             }
 
             let code = \`${escapedCode}\`;
