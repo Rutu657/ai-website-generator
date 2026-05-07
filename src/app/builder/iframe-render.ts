@@ -72,15 +72,22 @@ function buildRenderScript(): string {
   // In a JS regular string: "\\\\b" → output: \\b ✓✓✓
 
   return 'function showError(t,d,s){\n' +
-    '  document.getElementById("error-overlay").style.display="block";\n' +
+    '  var overlay=document.getElementById("error-overlay");\n' +
+    '  overlay.style.display="block";\n' +
+    '  overlay.style.background="rgba(0,0,0,0.85)";\n' +
     '  document.getElementById("error-message").textContent=t+": "+d;\n' +
     '  document.getElementById("error-stack").textContent=s||"(no stack)";\n' +
     '}\n' +
     'window.onerror=function(m,s,l,c,e){\n' +
     '  if(m==="Script error."&&l===0)return;\n' +
+    '  if(typeof m==="string"&&m.includes("clipboard"))return;\n' +
     '  showError("Error",String(m),e?e.stack:"line "+l);\n' +
     '};\n' +
     'function setupGlobals(){\n' +
+    '  if(!window.navigator.clipboard){\n' +
+    '    Object.defineProperty(window.navigator,"clipboard",{value:{writeText:function(){return Promise.resolve();},readText:function(){return Promise.resolve("");}},writable:true});\n' +
+    '  }\n' +
+    '  if(!window.localStorage){try{Object.defineProperty(window,"localStorage",{value:{getItem:function(){return null;},setItem:function(){},removeItem:function(){},clear:function(){}},writable:true});}catch(e){}}\n' +
     '  var R=window.React;\n' +
     '  if(R){\n' +
     '    ["useState","useEffect","useMemo","useRef","useCallback",\n' +
@@ -112,6 +119,7 @@ function buildRenderScript(): string {
     '  var raw=decodeURIComponent(escape(atob(window.__b64)));\n' +
     '  raw=raw.replace(new RegExp("^import\\\\b.*$","gm"),"");\n' +
     '  raw=raw.replace(new RegExp("^\\\\s*$","gm"),"");\n' +
+    '  raw=raw.replace(/navigator\\.clipboard(\\.\\w+|\\?\\.\\w+)?/g,"(function(){return{writeText:function(){return Promise.resolve();},readText:function(){return Promise.resolve(\"\");}};})()$1");\n' +
     '  var cn="GeneratedWebsite";\n' +
     '  raw=raw.replace(new RegExp("export\\\\s+default\\\\s+function\\\\s+(\\\\w+)"),function(_,n){cn=n;return"function "+n;});\n' +
     '  raw=raw.replace(new RegExp("export\\\\s+default\\\\s+class\\\\s+(\\\\w+)"),function(_,n){cn=n;return"class "+n;});\n' +
